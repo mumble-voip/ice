@@ -114,10 +114,9 @@ public func allTests(helper: TestHelper, communicator2: Ice.Communicator, ref: S
         // ensure retries with the old connection timeout semantics work.
         let retryWithTimeout = retry1.ice_invocationTimeout(-2).ice_timeout(200)
         do {
-            try retryWithTimeout.sleep(500)
+            try retryWithTimeout.sleep(1000)
             try test(false)
-        } catch is Ice.TimeoutException {
-        }
+        } catch is Ice.TimeoutException {}
     }
     output.writeLine("ok")
     return retry1

@@ -26,7 +26,7 @@ public class Client : Test.TestHelper
 #else
         string pluginPath =
             String.Format("msbuild/plugin/netstandard2.0/{0}/Plugin.dll",
-                          Path.GetFileName(Path.GetDirectoryName(Assembly.GetExecutingAssembly().CodeBase)));
+                          Path.GetFileName(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)));
 #endif
         {
             Console.Write("testing a simple plug-in... ");

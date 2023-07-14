@@ -7,36 +7,31 @@ top_srcdir := ..
 include $(top_srcdir)/config/Make.rules
 
 CONFIG ?= $(if $(filter $(OPTIMIZE),no),Debug,Release)
-PROJECT ?= $(if $(filter $(ICE_BIN_DIST), swift all),ice-test.xcodeproj,ice.xcodeproj)
+# TODO use ice-test.xcodeproj for binary builds once carthage support XCFramework prebuild packages
+PROJECT ?= ice.xcodeproj
+# PROJECT ?= $(if $(filter $(ICE_BIN_DIST), swift all),ice-test.xcodeproj,ice.xcodeproj)
 
 # $(call make-xcodebuild-rule,$1=rule,$2=platform,$3=scheme,$4=target)
 define make-xcodebuild-rule
 $1:: $(PROJECT)
 	xcodebuild -project $(PROJECT) \
-                   -scheme "$3 $(if $(filter $2,macosx),macOS,iOS)" \
+                   -target "$3 $(if $(filter $2,macosx),macOS,iOS)" \
                    -configuration $(CONFIG) \
                    -sdk $2 $4
 endef
 
-ice.xcodeproj: Rakefile | carthage
+ice.xcodeproj: Rakefile | carthage-bootstrap
 	rake icesdistproj
 
-ice-test.xcodeproj: Rakefile | carthage
+ice-test.xcodeproj: Rakefile | carthage-bootstrap
 	rake icebdistproj
 
 all:: tests
 
-# Workaround for carthage sporadic SEGFAULT (https://github.com/Carthage/Carthage/issues/2760).
-# If it SEGFAULT we retry.
-carthage:
-	$(Q)cd .. && \
-	carthage update --cache-builds || if [ $$? = 139 ]; then \
-	carthage update --cache-builds || if [ $$? = 139 ]; then \
-	carthage update --cache-builds || if [ $$? = 139 ]; then \
-	carthage update --cache-builds || if [ $$? = 139 ]; then \
-	carthage update --cache-builds; fi; fi; fi; fi
+carthage-bootstrap:
+	$(Q)cd .. && carthage bootstrap --cache-builds --use-xcframeworks
 
-tests srcs:: carthage
+tests srcs:: carthage-bootstrap
 
 install::
 	@echo nothing to install
@@ -52,6 +47,3 @@ $(foreach p,$(platforms),$(eval $(call make-xcodebuild-rule,clean,$p,TestDriver,
 
 $(foreach p,$(supported-platforms),$(eval $(call make-xcodebuild-rule,distclean,$p,Ice,clean)))
 $(foreach p,$(supported-platforms),$(eval $(call make-xcodebuild-rule,distclean,$p,TestDriver,clean)))
-
-test::
-	@python ./allTests.py --config $(CONFIG)

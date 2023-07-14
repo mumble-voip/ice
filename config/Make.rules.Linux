@@ -4,7 +4,7 @@
 
 known_distributions             := centos rhel fedora debian ubuntu amzn sles
 linux_ids                       := $(if $(wildcard /etc/os-release),$(shell . /etc/os-release && echo $${ID} $${ID_LIKE}),)
-linux_id                        := $(word 1,$(or $(filter $(known_distributions),$(linux_ids)),$(linux_ids)))
+linux_id                        ?= $(word 1,$(or $(filter $(known_distributions),$(linux_ids)),$(linux_ids)))
 is-bin-program                  = $(and $(filter $(bindir)%,$($4_targetdir)),$(filter $($1_target),program))
 
 ifneq ($(OECORE_SDK_VERSION),)
@@ -185,6 +185,9 @@ Ice_system_libs                                 += $(shell pkg-config --libs lib
 endif
 IceSSL_system_libs                              = -lssl -lcrypto
 Glacier2CryptPermissionsVerifier_system_libs    = -lcrypt
+
+icegridadmin_system_libs                        = -ledit
+icestormadmin_system_libs                       = -ledit
 
 #
 # On supported platforms and if Bluez and DBus are installed, we set the IceBT

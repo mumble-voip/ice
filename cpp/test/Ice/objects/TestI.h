@@ -93,6 +93,9 @@ public:
     virtual void setRecursive(ICE_IN(Test::RecursivePtr), const Ice::Current&);
     virtual bool supportsClassGraphDepthMax(const Ice::Current&);
 
+    virtual void setCycle(ICE_IN(Test::RecursivePtr), const Ice::Current&);
+    virtual bool acceptsClassCycles(const Ice::Current&);
+
 #ifdef ICE_CPP11_MAPPING
     virtual GetMBMarshaledResult getMB(const Ice::Current&);
     virtual void getAMDMBAsync(std::function<void(const GetAMDMBMarshaledResult&)>,
@@ -147,6 +150,8 @@ public:
     virtual Test::F2PrxPtr opF2(ICE_IN(Test::F2PrxPtr), Test::F2PrxPtr&, const Ice::Current&);
     virtual Test::F3Ptr opF3(ICE_IN(Test::F3Ptr), Test::F3Ptr&, const Ice::Current&);
     virtual bool hasF3(const Ice::Current&);
+
+    virtual Test::NPtr opN(ICE_IN(Test::NPtr), const ::Ice::Current&);
 
 private:
 

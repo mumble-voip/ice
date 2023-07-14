@@ -9,9 +9,6 @@
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <OutputPath>.</OutputPath>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(AppTargetFramework)' == 'netcoreapp3.1'">
-    <UseAppHost>true</UseAppHost>
-  </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../../../../TestCommon/TestHelper.cs" />
     <Compile Include="../../../CallbackI.cs" />
@@ -19,13 +16,13 @@
     <Compile Include="generated\Callback.cs">
       <SliceCompileSource>../../../Callback.ice</SliceCompileSource>
     </Compile>
-    <PackageReference Include="zeroc.icebuilder.msbuild" Version="5.0.4" />
+    <PackageReference Include="zeroc.icebuilder.msbuild" Version="5.0.7" />
     <SliceCompile Include="../../../Callback.ice" />
   </ItemGroup>
   <Choose>
     <When Condition="'$(ICE_BIN_DIST)' == 'all'">
       <ItemGroup>
-        <PackageReference Include="zeroc.ice.net" Version="3.7.3.1" />
+        <PackageReference Include="zeroc.ice.net" Version="3.7.9" />
       </ItemGroup>
     </When>
     <Otherwise>

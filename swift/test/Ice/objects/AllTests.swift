@@ -73,17 +73,17 @@ func allTests(_ helper: TestHelper) throws -> InitialPrx {
 
     output.write("checking consistency... ")
     try test(b1 !== b2)
-    //test(b1 != c)
-    //test(b1 != d)
-    //test(b2 != c)
-    //test(b2 != d)
-    //test(c != d)
+    // test(b1 != c)
+    // test(b1 != d)
+    // test(b2 != c)
+    // test(b2 != d)
+    // test(c != d)
     try test(b1.theB === b1)
     try test(b1.theC == nil)
     try test(b1.theA is B)
     try test((b1.theA as! B).theA === b1.theA)
     try test((b1.theA as! B).theB === b1)
-    //test(((B)b1.theA).theC is C) // Redundant -- theC is always of type C
+    // test(((B)b1.theA).theC is C) // Redundant -- theC is always of type C
     try test((b1.theA as! B).theC!.theB === b1.theA)
     try test(b1.preMarshalInvoked)
     try test(b1.postUnmarshalInvoked)
@@ -310,6 +310,29 @@ func allTests(_ helper: TestHelper) throws -> InitialPrx {
             try test(f32!.f1!.name == "F12")
             try test(f32!.f2!.ice_getIdentity().name == "F22")
         }
+    }
+    output.writeLine("ok")
+
+    output.write("testing sending class cycle... ")
+    do {
+        let rec = Recursive(v: nil)
+        rec.v = rec
+        let acceptsCycles = try initial.acceptsClassCycles()
+        do {
+            try initial.setCycle(rec)
+            try test(acceptsCycles)
+        } catch is Ice.UnknownLocalException {
+            try test(!acceptsCycles)
+        }
+        rec.v = nil
+    }
+    output.writeLine("ok")
+
+    output.write("testing class with interface by value member... ")
+    do {
+        let i = try initial.getI()
+        var n = N(i: i)
+        n = try initial.opN(n)!
     }
     output.writeLine("ok")
 

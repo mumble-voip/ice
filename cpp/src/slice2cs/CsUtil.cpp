@@ -2433,14 +2433,11 @@ Slice::CsGenerator::writeSerializeDeserializeCode(Output &out,
 string
 Slice::CsGenerator::toArrayAlloc(const string& decl, const string& sz)
 {
-    int count = 0;
     string::size_type pos = decl.size();
     while(pos > 1 && decl.substr(pos - 2, 2) == "[]")
     {
-        ++count;
         pos -= 2;
     }
-    assert(count > 0);
 
     ostringstream o;
     o << decl.substr(0, pos) << '[' << sz << ']' << decl.substr(pos + 2);
@@ -2458,7 +2455,7 @@ bool
 Slice::CsGenerator::MetaDataVisitor::visitUnitStart(const UnitPtr& p)
 {
     //
-    // Validate global metadata in the top-level file and all included files.
+    // Validate file metadata in the top-level file and all included files.
     //
     StringList files = p->allFiles();
     for(StringList::iterator q = files.begin(); q != files.end(); ++q)
@@ -2488,7 +2485,7 @@ Slice::CsGenerator::MetaDataVisitor::visitUnitStart(const UnitPtr& p)
                 if(!(s.find(csTypeIdNsPrefix) == 0 && s.size() > csTypeIdNsPrefix.size()) &&
                    !(s.find(csAttributePrefix) == 0 && s.size() > csAttributePrefix.size()))
                 {
-                    dc->warning(InvalidMetaData, file, -1, "ignoring invalid global metadata `" + oldS + "'");
+                    dc->warning(InvalidMetaData, file, -1, "ignoring invalid file metadata `" + oldS + "'");
                     continue;
                 }
             }

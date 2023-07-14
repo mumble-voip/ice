@@ -8,6 +8,7 @@ import TestCommon
 class Collocated: TestHelperI {
     public override func run(args: [String]) throws {
         let properties = try createTestProperties(args)
+        properties.setProperty(key: "Ice.AcceptClassCycles", value: "1")
         properties.setProperty(key: "Ice.Warn.Dispatch", value: "0")
         var initData = Ice.InitializationData()
         initData.properties = properties
@@ -33,7 +34,7 @@ class Collocated: TestHelperI {
         try adapter.add(servant: F2Disp(F2I()), id: Ice.stringToIdentity("F21"))
         try adapter.add(servant: BlobjectDisp(UnexpectedObjectExceptionTestI()),
                         id: Ice.stringToIdentity("uoet"))
-        //try adapter.activate() // Don't activate OA to ensure collocation is used.
+        // try adapter.activate() // Don't activate OA to ensure collocation is used.
 
         let initial = try allTests(self)
         // We must call shutdown even in the collocated case for cyclic dependency cleanup

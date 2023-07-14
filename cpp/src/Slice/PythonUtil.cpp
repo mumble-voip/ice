@@ -222,9 +222,45 @@ lookupKwd(const string& name)
     //
     static const string keywordList[] =
     {
-        "None", "and", "assert", "break", "class", "continue", "def", "del", "elif", "else", "except", "exec",
-        "finally", "for", "from", "global", "if", "import", "in", "is", "lambda", "not", "or", "pass",
-        "print", "raise", "return", "self", "try", "while", "yield"
+        "False",
+        "None",
+        "True",
+        "and",
+        "as",
+        "assert",
+        "async",
+        "await",
+        "break",
+        "case",
+        "class",
+        "continue",
+        "def",
+        "del",
+        "elif",
+        "else",
+        "except",
+        "exec",
+        "finally",
+        "for",
+        "from",
+        "global",
+        "if",
+        "import",
+        "in",
+        "is",
+        "lambda",
+        "match",
+        "nonlocal",
+        "not",
+        "or",
+        "pass",
+        "print",
+        "raise",
+        "return",
+        "try",
+        "while",
+        "with",
+        "yield"
     };
     bool found =  binary_search(&keywordList[0],
                                 &keywordList[sizeof(keywordList) / sizeof(*keywordList)],
@@ -805,7 +841,20 @@ Slice::Python::CodeVisitor::visitClassDefStart(const ClassDefPtr& p)
             TypePtr ret = (*oli)->returnType();
             ParamDeclList paramList = (*oli)->parameters();
             string inParams;
+            string inParamsDecl;
 
+            // Find the last required parameter, all optional parameters after the last required parameter will use
+            // Ice.Unset as the default.
+            ParamDeclPtr lastRequiredParameter;
+            for(ParamDeclList::const_iterator q = paramList.begin(); q != paramList.end(); ++q)
+            {
+                if(!(*q)->isOutParam() && !(*q)->optional())
+                {
+                    lastRequiredParameter = *q;
+                }
+            }
+
+            bool afterLastRequiredParameter = lastRequiredParameter == ICE_NULLPTR;
             for(ParamDeclList::const_iterator q = paramList.begin(); q != paramList.end(); ++q)
             {
                 if(!(*q)->isOutParam())
@@ -813,17 +862,29 @@ Slice::Python::CodeVisitor::visitClassDefStart(const ClassDefPtr& p)
                     if(!inParams.empty())
                     {
                         inParams.append(", ");
+                        inParamsDecl.append(", ");
                     }
-                    inParams.append(fixIdent((*q)->name()));
+                    string param = fixIdent((*q)->name());
+                    inParams.append(param);
+                    if(afterLastRequiredParameter)
+                    {
+                        param += "=Ice.Unset";
+                    }
+                    inParamsDecl.append(param);
+
+                    if(*q == lastRequiredParameter)
+                    {
+                        afterLastRequiredParameter = true;
+                    }
                 }
             }
 
             _out << sp;
             writeDocstring(*oli, DocSync, false);
             _out << nl << "def " << fixedOpName << "(self";
-            if(!inParams.empty())
+            if(!inParamsDecl.empty())
             {
-                _out << ", " << inParams;
+                _out << ", " << inParamsDecl;
             }
             const string contextParamName = getEscapedParamName(*oli, "context");
             _out << ", " << contextParamName << "=None):";
@@ -949,7 +1010,15 @@ Slice::Python::CodeVisitor::visitClassDefStart(const ClassDefPtr& p)
         //
         ClassList allBases = p->allBases();
         StringList ids;
+#ifdef ICE_CPP11_COMPILER
+        transform(allBases.begin(), allBases.end(), back_inserter(ids),
+                  [](const ContainedPtr& it)
+                  {
+                      return it->scoped();
+                  });
+#else
         transform(allBases.begin(), allBases.end(), back_inserter(ids), IceUtil::constMemFun(&Contained::scoped));
+#endif
         StringList other;
         other.push_back(scoped);
         other.push_back("::Ice::Object");
@@ -2852,7 +2921,7 @@ Slice::Python::getPackageDirectory(const string& file, const UnitPtr& ut)
     //
 
     //
-    // Check if the file contains the python:pkgdir global metadata.
+    // Check if the file contains the python:pkgdir file metadata.
     //
     DefinitionContextPtr dc = ut->findDefinitionContext(file);
     assert(dc);
@@ -2877,7 +2946,7 @@ Slice::Python::getImportFileName(const string& file, const UnitPtr& ut, const ve
     //
 
     //
-    // Check if the file contains the python:pkgdir global metadata.
+    // Check if the file contains the python:pkgdir file metadata.
     //
     string pkgdir = getPackageDirectory(file, ut);
     if(!pkgdir.empty())
@@ -2999,7 +3068,11 @@ Slice::Python::fixIdent(const string& ident)
         return lookupKwd(ident);
     }
     vector<string> ids = splitScopedName(ident);
+#ifdef ICE_CPP11_COMPILER
+    transform(ids.begin(), ids.end(), ids.begin(), [](const string& id) -> string { return lookupKwd(id); });
+#else
     transform(ids.begin(), ids.end(), ids.begin(), ptr_fun(lookupKwd));
+#endif
     stringstream result;
     for(vector<string>::const_iterator i = ids.begin(); i != ids.end(); ++i)
     {
@@ -3034,7 +3107,7 @@ Slice::Python::getPackageMetadata(const ContainedPtr& cont)
     assert(m);
 
     //
-    // The python:package metadata can be defined as global metadata or applied to a top-level module.
+    // The python:package metadata can be defined as file metadata or applied to a top-level module.
     // We check for the metadata at the top-level module first and then fall back to the global scope.
     //
     static const string prefix = "python:package:";
@@ -3101,7 +3174,7 @@ Slice::Python::MetaDataVisitor::visitUnitStart(const UnitPtr& p)
     static const string prefix = "python:";
 
     //
-    // Validate global metadata in the top-level file and all included files.
+    // Validate file metadata in the top-level file and all included files.
     //
     StringList files = p->allFiles();
     for(StringList::iterator q = files.begin(); q != files.end(); ++q)
@@ -3126,7 +3199,7 @@ Slice::Python::MetaDataVisitor::visitUnitStart(const UnitPtr& p)
                     continue;
                 }
 
-                dc->warning(InvalidMetaData, file, "", "ignoring invalid global metadata `" + s + "'");
+                dc->warning(InvalidMetaData, file, "", "ignoring invalid file metadata `" + s + "'");
                 globalMetaData.remove(s);
             }
         }

@@ -309,6 +309,24 @@ classdef AllTests
             end
             fprintf('ok\n');
 
+            fprintf('testing sending class cycle... ');
+            rec = Recursive();
+            rec.v = rec;
+            acceptsCycles = initial.acceptsClassCycles();
+            try
+                initial.setCycle(rec);
+                assert(acceptsCycles);
+            catch ex
+                assert(~acceptsCycles);
+            end
+            fprintf('ok\n');
+
+            fprintf('testing class with interface by value member... ');
+            i = initial.getI();
+            n = N(i);
+            n = initial.opN(n);
+            fprintf('ok\n');
+
             r = initial;
         end
     end

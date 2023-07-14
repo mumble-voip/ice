@@ -4,33 +4,31 @@
 
 const Ice = require("../Ice/ModuleRegistry").Ice;
 const _ModuleRegistry = Ice._ModuleRegistry;
-_ModuleRegistry.require(module,
-    [
-        "../Ice/Debug",
-        "../Ice/ExUtil",
-        "../Ice/FormatType",
-        "../Ice/Object",
-        "../Ice/Value",
-        "../Ice/OptionalFormat",
-        "../Ice/Protocol",
-        "../Ice/TraceUtil",
-        "../Ice/Buffer",
-        "../Ice/Exception",
-        "../Ice/LocalException",
-        "../Ice/Version",
-        "../Ice/CompactIdRegistry",
-        "../Ice/ArrayUtil",
-        "../Ice/UnknownSlicedValue"
-    ]);
 
+require("../Ice/ArrayUtil");
+require("../Ice/Buffer");
+require("../Ice/CompactIdRegistry");
+require("../Ice/Debug");
+require("../Ice/ExUtil");
+require("../Ice/Exception");
+require("../Ice/FormatType");
+require("../Ice/LocalException");
+require("../Ice/Object");
+require("../Ice/OptionalFormat");
+require("../Ice/Protocol");
+require("../Ice/TraceUtil");
+require("../Ice/UnknownSlicedValue");
+require("../Ice/Value");
+require("../Ice/Version");
+
+const ArrayUtil = Ice.ArrayUtil;
 const Debug = Ice.Debug;
 const ExUtil = Ice.ExUtil;
 const FormatType = Ice.FormatType;
 const OptionalFormat = Ice.OptionalFormat;
 const Protocol = Ice.Protocol;
-const TraceUtil = Ice.TraceUtil;
-const ArrayUtil = Ice.ArrayUtil;
 const SlicedData = Ice.SlicedData;
+const TraceUtil = Ice.TraceUtil;
 
 const SliceType =
 {
@@ -2278,7 +2276,7 @@ class EncapsEncoder10 extends EncapsEncoder
         //
         // Object references are encoded as a negative integer in 1.0.
         //
-        if(v !== null)
+        if(v !== null && v !== undefined)
         {
             this._stream.writeInt(-this.registerValue(v));
         }
@@ -2450,7 +2448,7 @@ class EncapsEncoder11 extends EncapsEncoder
     writeValue(v)
     {
         Debug.assert(v !== undefined);
-        if(v === null)
+        if(v === null || v === undefined)
         {
             this._stream.writeSize(0);
         }
@@ -3078,7 +3076,7 @@ class OutputStream
 
     writeBlob(v)
     {
-        if(v === null)
+        if(v === null || v === undefined)
         {
             return;
         }
@@ -3121,7 +3119,7 @@ class OutputStream
 
     writeByteSeq(v)
     {
-        if(v === null || v.length === 0)
+        if(v === null || v === undefined || v.length === 0)
         {
             this.writeSize(0);
         }
@@ -3181,7 +3179,7 @@ class OutputStream
 
     writeString(v)
     {
-        if(v === null || v.length === 0)
+        if(v === null || v === undefined || v.length === 0)
         {
             this.writeSize(0);
         }
@@ -3193,14 +3191,14 @@ class OutputStream
 
     writeProxy(v)
     {
-        if(v !== null)
-        {
-            v._write(this);
-        }
-        else
+        if(v === null || v === undefined)
         {
             const ident = new Ice.Identity();
             ident._write(this);
+        }
+        else
+        {
+            v._write(this);
         }
     }
 

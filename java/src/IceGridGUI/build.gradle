@@ -2,6 +2,7 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 //
 
+import org.gradle.util.GradleVersion
 project.ext.displayName = "IceGridGUI"
 project.ext.description = ""
 
@@ -80,10 +81,8 @@ jar {
 
 project.ext.libJars = []
 
-project.ext.jarBuilder = "plain-jar.gradle"
-if(icegridguiProguard.toBoolean()) {
-    project.ext.jarBuilder = "proguard-jar.gradle"
-}
+project.ext.jarBuilder = icegridguiProguard.toBoolean() && JavaVersion.current() > JavaVersion.VERSION_1_8 ?
+    "proguard-jar.gradle" : "plain-jar.gradle"
 
 apply from: jarBuilder
 

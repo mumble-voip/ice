@@ -4,15 +4,14 @@
 
 buildscript {
     repositories {
-        jcenter()
         google()
         maven {
             url "https://plugins.gradle.org/m2/"
         }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.5.0'
-        classpath 'gradle.plugin.com.zeroc.gradle.ice-builder:slice:1.4.7'
+        classpath 'com.android.tools.build:gradle:7.4.2'
+        classpath 'gradle.plugin.com.zeroc.gradle.ice-builder:slice:1.5.0'
     }
 }
 
@@ -32,31 +31,32 @@ slice {
     }
 }
 
-repositories {
-    if(slice.jarDir != null) {
-        flatDir {
-            name "local"
-            dirs slice.jarDir
-        }
-    }
+project.ext.srcDist = new File([project.slice.iceHome, "java", "src"].join(File.separator)).exists()
 
+repositories {
     if(this.devRepo) {
         maven {
             url this.devRepo
         }
     }
 
+    if(project.ext.srcDist) {
+        repositories {
+            flatDir dirs: "file://${project.slice.iceHome}/java/lib"
+        }
+    }
+
     google()
-    jcenter()
+    mavenCentral()
 }
 
 android {
-    compileSdkVersion 29
+    compileSdkVersion 33
 
     defaultConfig {
         applicationId "com.zeroc.testcontroller"
-        minSdkVersion 24
-        targetSdkVersion 29
+        minSdkVersion 31
+        targetSdkVersion 33
         multiDexEnabled true // Necessary otherwise we'd exceed the 64K DEX limit.
         compileOptions {
             sourceCompatibility JavaVersion.VERSION_1_8
@@ -94,10 +94,11 @@ clean {
 }
 
 ext.localDependency = { artifactId ->
-    if(project.slice.srcDist || System.env.ICE_BIN_DIST == "cpp") {
-        return ":${artifactId}-${project.iceVersion}"
-    } else {
+    def useBinDist = System.env.ICE_BIN_DIST?.split(" ").find{ it == 'all' || it.contains('java')}
+    if(useBinDist) {
         return "com.zeroc:${artifactId}:${project.iceVersion}"
+    } else {
+        return ":${artifactId}-${project.iceVersion}"
     }
 }
 
@@ -109,5 +110,5 @@ dependencies {
     runtimeOnly localDependency("icebt")
 
     implementation files("${rootProject.projectDir}/../../../lib/test.jar")
-    runtimeOnly "org.apache.commons:commons-compress:1.14"
+    runtimeOnly "org.apache.commons:commons-compress:1.20"
 }

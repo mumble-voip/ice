@@ -1853,7 +1853,18 @@ IceRuby::DictionaryInfo::unmarshal(Ice::InputStream* is, const UnmarshalCallback
         //
         keyType->unmarshal(is, keyCB, Qnil, 0, false);
         assert(!NIL_P(keyCB->key));
-
+        if (valueType->usesClasses())
+        {
+            // Temporarily set the entry with a Qnil value to ensure the key is not GC
+            // while unmarshaling a value class
+            if (RB_TYPE_P(keyCB->key, T_STRING))
+            {
+                // For string keys create a frozen string to ensure that the key used
+                // in the map matches the one keep in the closure
+                keyCB->key = rb_str_new_frozen(keyCB->key);
+            }
+            callRuby(rb_hash_aset, hash, keyCB->key, Qnil);
+        }
         //
         // The callback will set the dictionary entry with the unmarshaled value,
         // so we pass it the key.
@@ -2744,7 +2755,10 @@ IceRuby::ReadObjectCallback::invoke(const Ice::ObjectPtr& p)
             ex.expectedType = _info->id;
             throw ex;
         }
-
+#ifndef NDEBUG
+        // With debug builds we force a GC to ensure that all data members are correctly keep alive.
+        rb_gc();
+#endif
         _cb->unmarshaled(obj, _target, _closure);
     }
     else
@@ -2875,6 +2889,7 @@ IceRuby::ExceptionReader::ExceptionReader(const ExceptionInfoPtr& info) :
 IceRuby::ExceptionReader::~ExceptionReader()
     throw()
 {
+    rb_gc_unregister_address(&_ex);
 }
 
 string
@@ -2910,6 +2925,7 @@ IceRuby::ExceptionReader::_read(Ice::InputStream* is)
     is->startException();
 
     const_cast<VALUE&>(_ex) = _info->unmarshal(is);
+    rb_gc_register_address(&_ex);
 
     const_cast<Ice::SlicedDataPtr&>(_slicedData) = is->endException(_info->preserve);
 }
@@ -3228,7 +3244,9 @@ IceRuby::initTypes(VALUE iceModule)
     // Define a class to represent TypeInfo, and another to represent ExceptionInfo.
     //
     _typeInfoClass = rb_define_class_under(iceModule, "Internal_TypeInfo", rb_cObject);
+    rb_undef_alloc_func(_typeInfoClass);
     _exceptionInfoClass = rb_define_class_under(iceModule, "Internal_ExceptionInfo", rb_cObject);
+    rb_undef_alloc_func(_exceptionInfoClass);
 
     rb_define_const(iceModule, "T_bool", createType(new PrimitiveInfo(PrimitiveInfo::KindBool)));
     rb_define_const(iceModule, "T_byte", createType(new PrimitiveInfo(PrimitiveInfo::KindByte)));
@@ -3256,6 +3274,7 @@ IceRuby::initTypes(VALUE iceModule)
 
     _unsetTypeClass = rb_define_class_under(iceModule, "Internal_UnsetType", rb_cObject);
     Unset = callRuby(rb_class_new_instance, 0, static_cast<VALUE*>(0), _unsetTypeClass);
+    rb_undef_alloc_func(_unsetTypeClass);
     rb_define_const(iceModule, "Unset", Unset);
 
     return true;

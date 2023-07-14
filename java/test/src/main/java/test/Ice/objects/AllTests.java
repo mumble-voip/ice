@@ -33,6 +33,7 @@ import test.Ice.objects.Test.J;
 import test.Ice.objects.Test.Recursive;
 import test.Ice.objects.Test.UnexpectedObjectExceptionTestPrx;
 import test.Ice.objects.Test.M;
+import test.Ice.objects.Test.N;
 import test.Ice.objects.Test.StructKey;
 import test.Ice.objects.Test.Initial.OpMResult;
 
@@ -432,6 +433,32 @@ public class AllTests
                 test(opF3Result.f32.f1.name.equals("F12"));
                 test(opF3Result.f32.f2.ice_getIdentity().name.equals("F22"));
             }
+        }
+        out.println("ok");
+
+        out.print("testing sending class cycle... ");
+        out.flush();
+        {
+            Recursive rec = new Recursive();
+            rec.v = rec;
+            boolean acceptsCycles = initial.acceptsClassCycles();
+            try
+            {
+                initial.setCycle(rec);
+                test(acceptsCycles);
+            }
+            catch(com.zeroc.Ice.UnknownLocalException ex)
+            {
+                test(!acceptsCycles);
+            }
+        }
+        out.println("ok");
+
+        out.print("testing class with interface by value member... ");
+        out.flush();
+        {
+            N n = new N(i);
+            n = initial.opN(n);
         }
         out.println("ok");
 

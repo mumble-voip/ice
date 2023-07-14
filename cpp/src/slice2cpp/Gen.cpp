@@ -105,10 +105,9 @@ writeConstantValue(IceUtilInternal::Output& out, const TypePtr& type, const Synt
         BuiltinPtr bp = BuiltinPtr::dynamicCast(type);
         if(bp && bp->kind() == Builtin::KindString)
         {
-            bool wide = (typeContext & TypeContextUseWstring) || findMetaData(metaData) == "wstring";
-            if(wide || cpp11)
+            if ((typeContext & TypeContextUseWstring) || findMetaData(metaData) == "wstring") // wide strings
             {
-                out << (wide ? "L\"" : "u8\"");
+                out << "L\"";
                 out << toStringLiteral(value, "\a\b\f\n\r\t\v", "?", UCN, cpp11 ? 0 : 0x9F + 1);
                 out << "\"";
             }
@@ -740,7 +739,7 @@ Slice::Gen::generate(const UnitPtr& p)
     string file = p->topLevelFile();
 
     //
-    // Give precedence to header-ext/source-ext global metadata.
+    // Give precedence to header-ext/source-ext file metadata.
     //
     string headerExtension = getHeaderExt(file, p);
     if(!headerExtension.empty())
@@ -988,7 +987,7 @@ Slice::Gen::generate(const UnitPtr& p)
                 else
                 {
                     ostringstream ostr;
-                    ostr << "ignoring invalid global metadata `" << md << "'";
+                    ostr << "ignoring invalid file metadata `" << md << "'";
                     dc->warning(InvalidMetaData, file, -1, ostr.str());
                     globalMetaData.remove(md);
                 }
@@ -1002,7 +1001,7 @@ Slice::Gen::generate(const UnitPtr& p)
                 else
                 {
                     ostringstream ostr;
-                    ostr << "ignoring invalid global metadata `" << md << "'";
+                    ostr << "ignoring invalid file metadata `" << md << "'";
                     dc->warning(InvalidMetaData, file, -1, ostr.str());
                     globalMetaData.remove(md);
                 }
@@ -1384,7 +1383,23 @@ Slice::Gen::TypesVisitor::visitExceptionStart(const ExceptionPtr& p)
         }
         H << allParamDecls << epar << ';';
     }
+
+    H.zeroIndent();
+    H << sp << nl << "#ifdef ICE_CPP11_COMPILER";
+    H.restoreIndent();
+    H << nl << name << "(const " << name << "&) = default;";
+    H << nl << "virtual ~" << name << "();";
+
+    H.zeroIndent();
+    H << nl << "#else";
+    H.restoreIndent();
+
     H << nl << "virtual ~" << name << "() throw();";
+
+    H.zeroIndent();
+    H << nl << "#endif";
+    H.restoreIndent();
+
     H << sp;
 
     if(!p->isLocal())
@@ -1479,10 +1494,27 @@ Slice::Gen::TypesVisitor::visitExceptionStart(const ExceptionPtr& p)
         C << eb;
     }
 
-    C << sp << nl;
+    C.zeroIndent();
+    C << sp << nl << "#ifdef ICE_CPP11_COMPILER";
+    C.restoreIndent();
+
+    C << nl;
+    C << scoped.substr(2) << "::~" << name << "()";
+    C << sb;
+    C << eb;
+
+    C.zeroIndent();
+    C << nl << "#else";
+    C.restoreIndent();
+
+    C << nl;
     C << scoped.substr(2) << "::~" << name << "() throw()";
     C << sb;
     C << eb;
+
+    C.zeroIndent();
+    C << nl << "#endif";
+    C.restoreIndent();
 
     H << nl << "/**";
     H << nl << " * Obtains the Slice type ID of this exception.";
@@ -1505,7 +1537,7 @@ Slice::Gen::TypesVisitor::visitExceptionStart(const ExceptionPtr& p)
     }
 
     H << nl << "/**";
-    H << nl << " * Polymporphically clones this exception.";
+    H << nl << " * Polymorphically clones this exception.";
     H << nl << " * @return A shallow copy of this exception.";
     H << nl << " */";
     H << nl << "virtual " << name << "* ice_clone() const;";
@@ -2967,6 +2999,21 @@ Slice::Gen::ObjectVisitor::visitClassDefStart(const ClassDefPtr& p)
         emitOneShotConstructor(p);
     }
 
+    H.zeroIndent();
+    H << sp << nl << "#ifdef ICE_CPP11_COMPILER";
+    H.restoreIndent();
+    if (p->isInterface())
+    {
+        // If this is not an interface it's defined above
+        H << nl << name << "() = default;";
+    }
+    H << nl << name << "(const " << name << "&) = default;";
+    H << nl <<  name << "& operator=(const " << name << "&) = default;";
+
+    H.zeroIndent();
+    H << nl << "#endif";
+    H.restoreIndent();
+
     if(!p->isLocal())
     {
         C << sp;
@@ -2986,7 +3033,7 @@ Slice::Gen::ObjectVisitor::visitClassDefStart(const ClassDefPtr& p)
         {
             H << sp;
             H << nl << "/**";
-            H << nl << " * Polymporphically clones this object.";
+            H << nl << " * Polymorphically clones this object.";
             H << nl << " * @return A shallow copy of this object.";
             H << nl << " */";
             H << nl << "virtual " << getUnqualified("::Ice::ObjectPtr", scope) << " ice_clone() const;";
@@ -3030,7 +3077,15 @@ Slice::Gen::ObjectVisitor::visitClassDefStart(const ClassDefPtr& p)
 
         ClassList allBases = p->allBases();
         StringList ids;
+#ifdef ICE_CPP11_COMPILER
+        transform(allBases.begin(), allBases.end(), back_inserter(ids),
+                  [](const ContainedPtr& it)
+                  {
+                      return it->scoped();
+                  });
+#else
         transform(allBases.begin(), allBases.end(), back_inserter(ids), ::IceUtil::constMemFun(&Contained::scoped));
+#endif
         StringList other;
         other.push_back(p->scoped());
         other.push_back("::Ice::Object");
@@ -3170,9 +3225,12 @@ Slice::Gen::ObjectVisitor::visitClassDefEnd(const ClassDefPtr& p)
         if(!allOps.empty())
         {
             StringList allOpNames;
+#ifdef ICE_CPP11_COMPILER
+            transform(allOps.begin(), allOps.end(), back_inserter(allOpNames), [](const auto& it) { return it->name(); });
+#else
             transform(allOps.begin(), allOps.end(), back_inserter(allOpNames),
                       ::IceUtil::constMemFun(&Contained::name));
-
+#endif
             allOpNames.push_back("ice_id");
             allOpNames.push_back("ice_ids");
             allOpNames.push_back("ice_isA");
@@ -5364,7 +5422,7 @@ Slice::Gen::MetaDataVisitor::visitUnitStart(const UnitPtr& p)
     static const string prefix = "cpp:";
 
     //
-    // Validate global metadata in the top-level file and all included files.
+    // Validate file metadata in the top-level file and all included files.
     // Note that these metadata can only be cpp:, never cpp98: or cpp11:
     //
     StringList files = p->allFiles();
@@ -5404,7 +5462,7 @@ Slice::Gen::MetaDataVisitor::visitUnitStart(const UnitPtr& p)
                     if(headerExtension > 1)
                     {
                         ostringstream ostr;
-                        ostr << "ignoring invalid global metadata `" << s
+                        ostr << "ignoring invalid file metadata `" << s
                              << "': directive can appear only once per file";
                         dc->warning(InvalidMetaData, file, -1, ostr.str());
                         globalMetaData.remove(s);
@@ -5417,7 +5475,7 @@ Slice::Gen::MetaDataVisitor::visitUnitStart(const UnitPtr& p)
                     if(sourceExtension > 1)
                     {
                         ostringstream ostr;
-                        ostr << "ignoring invalid global metadata `" << s
+                        ostr << "ignoring invalid file metadata `" << s
                              << "': directive can appear only once per file";
                         dc->warning(InvalidMetaData, file, -1, ostr.str());
                         globalMetaData.remove(s);
@@ -5430,7 +5488,7 @@ Slice::Gen::MetaDataVisitor::visitUnitStart(const UnitPtr& p)
                     if(dllExport > 1)
                     {
                         ostringstream ostr;
-                        ostr << "ignoring invalid global metadata `" << s
+                        ostr << "ignoring invalid file metadata `" << s
                              << "': directive can appear only once per file";
                         dc->warning(InvalidMetaData, file, -1, ostr.str());
 
@@ -5444,7 +5502,7 @@ Slice::Gen::MetaDataVisitor::visitUnitStart(const UnitPtr& p)
                 }
 
                 ostringstream ostr;
-                ostr << "ignoring invalid global metadata `" << s << "'";
+                ostr << "ignoring invalid file metadata `" << s << "'";
                 dc->warning(InvalidMetaData, file, -1, ostr.str());
                 globalMetaData.remove(s);
             }
@@ -5857,7 +5915,7 @@ Slice::Gen::NormalizeMetaDataVisitor::normalize(const StringList& metaData)
     //             + transform "cpp98:" into "cpp:" in front
 
     //
-    // Note: global metadata like header-ext exists only in cpp:
+    // Note: file metadata like header-ext exists only in cpp:
     // form and are not processed at all
     //
 
@@ -6116,7 +6174,15 @@ Slice::Gen::Cpp11DeclVisitor::visitClassDefStart(const ClassDefPtr& p)
 
         ClassList allBases = p->allBases();
         StringList ids;
+#ifdef ICE_CPP11_COMPILER
+        transform(allBases.begin(), allBases.end(), back_inserter(ids),
+                  [](const ContainedPtr& it)
+                  {
+                      return it->scoped();
+                  });
+#else
         transform(allBases.begin(), allBases.end(), back_inserter(ids), ::IceUtil::constMemFun(&Contained::scoped));
+#endif
         StringList other;
         other.push_back(p->scoped());
         other.push_back("::Ice::Object");
@@ -6137,7 +6203,15 @@ Slice::Gen::Cpp11DeclVisitor::visitClassDefStart(const ClassDefPtr& p)
         C << eb << ';';
 
         StringList allOpNames;
+#ifdef ICE_CPP11_COMPILER
+        transform(allOps.begin(), allOps.end(), back_inserter(allOpNames),
+                  [](const ContainedPtr& it)
+                  {
+                      return it->name();
+                  });
+#else
         transform(allOps.begin(), allOps.end(), back_inserter(allOpNames), ::IceUtil::constMemFun(&Contained::name));
+#endif
         allOpNames.push_back("ice_id");
         allOpNames.push_back("ice_ids");
         allOpNames.push_back("ice_isA");
@@ -6392,14 +6466,7 @@ Slice::Gen::Cpp11TypesVisitor::visitExceptionStart(const ExceptionPtr& p)
                 {
                     H << ", ";
                 }
-                if(isMovable((*q)->type()))
-                {
-                    H << "::std::move(" << fixKwd((*q)->name()) << ")";
-                }
-                else
-                {
-                    H << fixKwd((*q)->name());
-                }
+                H << fixKwd((*q)->name());
             }
 
             H << ")";
@@ -6425,14 +6492,7 @@ Slice::Gen::Cpp11TypesVisitor::visitExceptionStart(const ExceptionPtr& p)
             {
                 H << ",";
             }
-            if(isMovable((*q)->type()))
-            {
-                H << nl << memberName << "(::std::move(" << memberName << "))";
-            }
-            else
-            {
-                H << nl << memberName << "(" << memberName << ")";
-            }
+            H << nl << memberName << "(" << memberName << ")";
         }
 
         H.dec();
@@ -7945,7 +8005,15 @@ Slice::Gen::Cpp11InterfaceVisitor::visitClassDefStart(const ClassDefPtr& p)
 
     ClassList allBases = p->allBases();
     StringList ids;
+#ifdef ICE_CPP11_COMPILER
+    transform(allBases.begin(), allBases.end(), back_inserter(ids),
+              [](const ContainedPtr& it)
+              {
+                  return it->scoped();
+              });
+#else
     transform(allBases.begin(), allBases.end(), back_inserter(ids), ::IceUtil::constMemFun(&Contained::scoped));
+#endif
     StringList other;
     other.push_back(p->scoped());
     other.push_back("::Ice::Object");
@@ -8043,7 +8111,15 @@ Slice::Gen::Cpp11InterfaceVisitor::visitClassDefEnd(const ClassDefPtr& p)
     if(!allOps.empty())
     {
         StringList allOpNames;
+#ifdef ICE_CPP11_COMPILER
+        transform(allOps.begin(), allOps.end(), back_inserter(allOpNames),
+                  [](const ContainedPtr& it)
+                  {
+                      return it->name();
+                  });
+#else
         transform(allOps.begin(), allOps.end(), back_inserter(allOpNames), ::IceUtil::constMemFun(&Contained::name));
+#endif
         allOpNames.push_back("ice_id");
         allOpNames.push_back("ice_ids");
         allOpNames.push_back("ice_isA");
@@ -8721,14 +8797,7 @@ Slice::Gen::Cpp11ObjectVisitor::emitVirtualBaseInitializers(const ClassDefPtr& d
         {
             upcall += ", ";
         }
-        if(isMovable((*q)->type()))
-        {
-            upcall += "::std::move(" + fixKwd((*q)->name()) + ")";
-        }
-        else
-        {
-            upcall += "" + fixKwd((*q)->name());
-        }
+        upcall += "" + fixKwd((*q)->name());
     }
     upcall += ")";
 
@@ -8824,14 +8893,7 @@ Slice::Gen::Cpp11ObjectVisitor::emitOneShotConstructor(const ClassDefPtr& p)
                 H << ',' << nl;
             }
             string memberName = fixKwd((*q)->name());
-            if(isMovable((*q)->type()))
-            {
-                H << memberName << "(::std::move(" << memberName << "))";
-            }
-            else
-            {
-                H << memberName << "(" << memberName << ')';
-            }
+            H << memberName << "(" << memberName << ')';
         }
 
         H.dec();

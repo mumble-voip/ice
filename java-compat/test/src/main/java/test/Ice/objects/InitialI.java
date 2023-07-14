@@ -30,6 +30,7 @@ import test.Ice.objects.Test.Compact;
 import test.Ice.objects.Test.CompactExt;
 import test.Ice.objects.Test.M;
 import test.Ice.objects.Test.MHolder;
+import test.Ice.objects.Test.N;
 import test.Ice.objects.Test.F1;
 import test.Ice.objects.Test.F1Holder;
 import test.Ice.objects.Test.F2Prx;
@@ -145,6 +146,17 @@ public final class InitialI extends Initial
     public boolean supportsClassGraphDepthMax(Ice.Current current)
     {
         return false;
+    }
+
+    @Override
+    public void setCycle(Recursive r, Ice.Current current)
+    {
+    }
+
+    @Override
+    public boolean acceptsClassCycles(Ice.Current current)
+    {
+        return true;
     }
 
     @Override
@@ -327,6 +339,12 @@ public final class InitialI extends Initial
     hasF3(Ice.Current current)
     {
         return true;
+    }
+
+    @Override
+    public N opN(N p1, Ice.Current current)
+    {
+        return p1;
     }
 
     private Ice.ObjectAdapter _adapter;

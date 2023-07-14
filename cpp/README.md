@@ -54,6 +54,7 @@ Ice has dependencies on a number of third-party libraries:
 
  - [bzip2][3] 1.0
  - [expat][4] 2.1 or later
+ - [libedit][12] (Linux and macOS)
  - [LMDB][5] 0.9 (LMDB is not required with the C++11 mapping)
  - [mcpp][6] 2.7.2 with patches
  - [OpenSSL][7] 1.0.0 or later (on AIX and Linux)
@@ -67,7 +68,7 @@ bzip2 and bzip2-devel are included in the [IBM AIX Toolbox for Linux Application
 ZeroC provide RPM packages for expat, LDMB and mcpp. You can install these packages
 as shown below:
 ```
-sudo yum install https://zeroc.com/download/ice/3.7/aix7.2/ice-repo.3.7.aix7.2.noarch.rpm
+sudo yum install https://zeroc.com/download/ice/3.7/aix7.2/ice-repo-3.7.aix7.2.noarch.rpm
 sudo yum install expat-devel lmdb-devel mcpp-devel
 ```
 
@@ -76,24 +77,24 @@ xlc_r, together with header files and other development files.
 
 #### Linux
 
-Bzip, Expat and OpenSSL are included with most Linux distributions.
+Bzip, Expat, Libedit and OpenSSL are included with most Linux distributions.
 
 ZeroC supplies binary packages for LMDB and mcpp for several Linux distributions
 that do not include them. You can install these packages as shown below:
 
 ##### Amazon Linux 2
 ```
-sudo yum install https://zeroc.com/download/ice/3.7/amzn2/ice-repo.3.7.amzn2.noarch.rpm
+sudo yum install https://zeroc.com/download/ice/3.7/amzn2/ice-repo-3.7.amzn2.noarch.rpm
 sudo yum install lmdb-devel mcpp-devel
 ```
 ##### RHEL 8
 ```
-sudo yum install https://zeroc.com/download/ice/3.7/el8/ice-repo.3.7.el8.noarch.rpm
+sudo yum install https://zeroc.com/download/ice/3.7/el8/ice-repo-3.7.el8.noarch.rpm
 sudo yum install lmdb-devel mcpp-devel
 ```
 ##### RHEL 7
 ```
-sudo yum install https://zeroc.com/download/ice/3.7/el7/ice-repo.3.7.el7.noarch.rpm
+sudo yum install https://zeroc.com/download/ice/3.7/el7/ice-repo-3.7.el7.noarch.rpm
 sudo yum install lmdb-devel mcpp-devel
 ```
 ##### SLES 12
@@ -123,7 +124,7 @@ from BlueZ 5.43.*
 
 #### macOS
 
-Expat and bzip are included with your system.
+bzip, expat and libedit are included with your system.
 
 You can install LMDB and mcpp using Homebrew:
 ```
@@ -167,6 +168,19 @@ example, to build the Ice C++98 mapping with `-std=c++11`, you can use:
 make CXXFLAGS=-std=c++11
 ```
 
+To build the test suite using a binary distribution use:
+```
+make ICE_BIN_DIST=all
+```
+
+If the binary distribution you are using is not installed in a system wide location
+where the C++ compiler can automatically find the header and library files, you also
+need to set `ICE_HOME`
+
+```
+make ICE_HOME=/opt/Ice-3.7.9 ICE_BIN_DIST=all
+```
+
 ### Build configurations and platforms
 
 The C++ source tree supports multiple build configurations and platforms. To
@@ -194,8 +208,9 @@ make CONFIGS=cpp11-shared -j8
 ### Ice Xcode SDK (macOS only)
 
 The build system supports building Xcode SDKs for Ice. These SDKs allow you to
-easily develop Ice applications with Xcode. To build Xcode SDKs, use the
-`xcodesdk` configurations:
+easily develop Ice applications with Xcode. To build Xcode SDKs, use the `xcodesdk`
+configurations. The [Ice Builder for Xcode][13] must be installed before building
+the SDKs:
 ```
 make CONFIGS=xcodesdk -j8 srcs         # Build the C++98 mapping Xcode SDK
 make CONFIGS=cpp11-xcodesdk -j8 srcs   # Build the C++11 mapping Xcode SDK
@@ -213,7 +228,7 @@ can open one of:
 - VS2015 x64 Native Tools Command Prompt
 
 Using the first Command Prompt produces `Win32` binaries by default, while
-the second Command Promt produces `x64` binaries by default.
+the second Command Prompt produces `x64` binaries by default.
 
 In the Command Prompt, change to the `cpp` subdirectory:
 ```
@@ -257,6 +272,7 @@ environment variables:
 
  - `SIGN_CERTIFICATE` to your Authenticode certificate
  - `SIGN_PASSWORD` to the certificate password
+ - `SIGN_SHA1` the SHA1 hash of the signing certificate
 
 ### Build Using Visual Studio
 
@@ -276,7 +292,7 @@ Using the configuration manager choose the platform and configuration you want
 to build.
 
 The solution provide a project for each Ice component and each component can be
-built separatelly. When you build a component its dependencies are built
+built separately. When you build a component its dependencies are built
 automatically.
 
 For Visual Studio 2019, Visual Studio 2017 and Visual Studio 2015, the solutions
@@ -303,7 +319,7 @@ release and debug mode respectively.
 
 The building of the test uses by default the local source build, and you must
 have built the Ice source with the same platform and configuration than you are
-attemping to build the tests.
+attempting to build the tests.
 
 For example to build the `Cpp11-Release/x64` tests you must have built first the
 C++11 mapping using `Release/x64`.
@@ -542,7 +558,7 @@ If everything worked out, you should see lots of `ok` messages. In case of a
 failure, the tests abort with `failed`.
 
 [1]: https://zeroc.com/downloads/ice
-[2]: https://doc.zeroc.com/ice/3.7/release-notes/supported-platforms-for-ice-3-7-3
+[2]: https://doc.zeroc.com/ice/3.7/release-notes/supported-platforms-for-ice-3-7-9
 [3]: https://github.com/zeroc-ice/bzip2
 [4]: https://libexpat.github.io
 [5]: https://symas.com/lightning-memory-mapped-database/
@@ -552,6 +568,8 @@ failure, the tests abort with `failed`.
 [9]: https://www.freedesktop.org/wiki/Software/pkg-config
 [10]: https://www.freedesktop.org/wiki/Software/dbus
 [11]: http://www.bluez.org
+[12]: https://thrysoee.dk/editline/
+[13]: https://github.com/zeroc-ice/ice-builder-xcode
 
 # Building Ice with CMake
 

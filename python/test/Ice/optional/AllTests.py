@@ -738,6 +738,24 @@ def allTests(helper, communicator):
     (p2, p3) = f.result()
     test(p2[1].a == 58 and p3[1].a == 58);
 
+    try:
+        (p1, p2, p3) = initial.opRequiredAfterOptional(1, 2, 3)
+        test(p1 == 1)
+        test(p2 == 2)
+        test(p3 == 3)
+
+        (p1, p2, p3) = initial.opOptionalAfterRequired(1)
+        test(p1 == 1)
+        test(p2 is Ice.Unset)
+        test(p3 is Ice.Unset)
+
+        (p1, p2, p3) = initial.opOptionalAfterRequired(1, p3=3)
+        test(p1 == 1)
+        test(p2 is Ice.Unset)
+        test(p3 == 3)
+    except Ice.OperationNotExistException:
+        # Expected for language mappings that don't implement these operations when running cross tests
+        pass
     print("ok")
 
     sys.stdout.write("testing exception optionals... ")
@@ -775,6 +793,8 @@ def allTests(helper, communicator):
         test(ex.o is Ice.Unset)
         test(ex.ss is Ice.Unset)
         test(ex.o2 is Ice.Unset)
+        test(ex.d1 == "d1");
+        test(ex.d2 == "d2");
 
     try:
         initial.opDerivedException(30, "test2", Test.OneOptional(53))
@@ -784,6 +804,8 @@ def allTests(helper, communicator):
         test(ex.o.a == 53)
         test(ex.ss == "test2")
         test(ex.o2 == ex.o)
+        test(ex.d1 == "d1");
+        test(ex.d2 == "d2");
 
     try:
         initial.opRequiredException(Ice.Unset, Ice.Unset, Ice.Unset)

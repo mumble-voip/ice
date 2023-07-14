@@ -8,8 +8,6 @@ import TestCommon
 
 class Collocated: TestHelperI {
     public override func run(args: [String]) throws {
-        let writer = getWriter()
-
         var properties = try createTestProperties(args)
         properties.setProperty(key: "Ice.RetryIntervals", value: "0 1 10 1")
 
@@ -43,7 +41,7 @@ class Collocated: TestHelperI {
         try communicator2.createObjectAdapter("TestAdapter").add(servant: RetryDisp(RetryI()),
                                                                  id: Ice.stringToIdentity("retry"))
 
-        //try adapter.activate() // Don't activate OA to ensure collocation is used.
+        // try adapter.activate() // Don't activate OA to ensure collocation is used.
         _ = try allTests(helper: self, communicator2: communicator2, ref: "retry@RetryAdapter")
     }
 }

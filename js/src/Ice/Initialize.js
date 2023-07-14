@@ -3,13 +3,11 @@
 //
 
 const Ice = require("../Ice/ModuleRegistry").Ice;
-Ice._ModuleRegistry.require(module,
-    [
-        "../Ice/Protocol",
-        "../Ice/LocalException",
-        "../Ice/Communicator",
-        "../Ice/Properties"
-    ]);
+
+require("../Ice/Communicator");
+require("../Ice/LocalException");
+require("../Ice/Properties");
+require("../Ice/Protocol");
 
 const Protocol = Ice.Protocol;
 
@@ -103,12 +101,12 @@ Ice.currentEncoding = function()
 
 Ice.stringVersion = function()
 {
-    return "3.7.3"; // "A.B.C", with A=major, B=minor, C=patch
+    return "3.7.9"; // "A.B.C", with A=major, B=minor, C=patch
 };
 
 Ice.intVersion = function()
 {
-    return 30703; // AABBCC, with AA=major, BB=minor, CC=patch
+    return 30709; // AABBCC, with AA=major, BB=minor, CC=patch
 };
 
 module.exports.Ice = Ice;

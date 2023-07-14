@@ -96,6 +96,11 @@ class H implements I
 {
 }
 
+class N
+{
+    I i;
+}
+
 class CompactExt;
 
 class Compact(1)
@@ -225,6 +230,9 @@ class Initial
     void setRecursive(Recursive p);
     bool supportsClassGraphDepthMax();
 
+    void setCycle(Recursive r);
+    bool acceptsClassCycles();
+
     ["marshaled-result"] B getMB();
     ["amd", "marshaled-result"] B getAMDMB();
 
@@ -273,6 +281,7 @@ class Initial
     F2* opF2(F2* f21, out F2* f22);
 
     bool hasF3();
+    N opN(N p1);
 }
 
 interface TestIntf

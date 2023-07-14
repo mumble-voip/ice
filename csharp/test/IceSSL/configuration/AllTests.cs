@@ -588,7 +588,7 @@ public class AllTests
                         catch(Ice.LocalException ex)
                         {
                             //
-                            // macOS catalina does not check the certificate common name
+                            // macOS catalina or greater does not check the certificate common name
                             //
                             if(!IceInternal.AssemblyUtil.isMacOS)
                             {
@@ -642,10 +642,10 @@ public class AllTests
                         {
                             server.ice_ping();
                         }
-                        catch(Ice.LocalException ex)
+                        catch(Ice.LocalException)
                         {
-                            Console.WriteLine(ex.ToString());
-                            test(false);
+                            // macOS >= Catalina requires a DNS altName. DNS name as the Common Name is not trusted
+                            test(IceInternal.AssemblyUtil.isMacOS);
                         }
                         fact.destroyServer(server);
                         comm.destroy();
@@ -781,7 +781,7 @@ public class AllTests
                         catch(Ice.SecurityException ex)
                         {
                             //
-                            // macOS catalina does not check the certificate common name
+                            // macOS catalina or greater does not check the certificate common name
                             //
                             if(!IceInternal.AssemblyUtil.isMacOS)
                             {
@@ -997,6 +997,10 @@ public class AllTests
                         catch(Ice.SecurityException)
                         {
                             // Chain length too long
+                        }
+                        catch(Ice.ConnectionLostException)
+                        {
+                            // Expected
                         }
                         catch(Ice.LocalException ex)
                         {
@@ -1232,10 +1236,7 @@ public class AllTests
             Console.Out.Write("testing protocols... ");
             Console.Out.Flush();
             {
-                //
-                // This should fail because the client and server have no protocol
-                // in common.
-                //
+                // Check if the platform supports tls1_1
                 initData = createClientProps(defaultProperties, "c_rsa_ca1", "cacert1");
                 initData.properties.setProperty("IceSSL.Protocols", "tls1_1");
                 Ice.Communicator comm = Ice.Util.initialize(ref args, initData);
@@ -1243,8 +1244,34 @@ public class AllTests
                 test(fact != null);
                 d = createServerProps(defaultProperties, "s_rsa_ca1", "cacert1");
                 d["IceSSL.VerifyPeer"] = "2";
-                d["IceSSL.Protocols"] = "tls1_2";
+                d["IceSSL.Protocols"] = "tls1_1";
+                bool tls11;
                 Test.ServerPrx server = fact.createServer(d);
+                try
+                {
+                    server.ice_ping();
+                    tls11 = true;
+                }
+                catch(Exception)
+                {
+                    tls11 = false;
+                }
+                fact.destroyServer(server);
+                comm.destroy();
+
+                //
+                // This should fail because the client and server have no protocol
+                // in common.
+                //
+                initData = createClientProps(defaultProperties, "c_rsa_ca1", "cacert1");
+                initData.properties.setProperty("IceSSL.Protocols", "tls1_1");
+                comm = Ice.Util.initialize(ref args, initData);
+                fact = Test.ServerFactoryPrxHelper.checkedCast(comm.stringToProxy(factoryRef));
+                test(fact != null);
+                d = createServerProps(defaultProperties, "s_rsa_ca1", "cacert1");
+                d["IceSSL.VerifyPeer"] = "2";
+                d["IceSSL.Protocols"] = "tls1_2";
+                server = fact.createServer(d);
                 try
                 {
                     server.ice_ping();
@@ -1266,30 +1293,20 @@ public class AllTests
                 fact.destroyServer(server);
                 comm.destroy();
 
-                //
-                // This should succeed.
-                //
-                comm = Ice.Util.initialize(ref args, initData);
-                fact = Test.ServerFactoryPrxHelper.checkedCast(comm.stringToProxy(factoryRef));
-                test(fact != null);
-                d = createServerProps(defaultProperties, "s_rsa_ca1", "cacert1");
-                d["IceSSL.VerifyPeer"] = "2";
-                d["IceSSL.Protocols"] = "tls1_1, tls1_2";
-                server = fact.createServer(d);
-                try
+                if(tls11)
                 {
+                    // This should succeed.
+                    comm = Ice.Util.initialize(ref args, initData);
+                    fact = Test.ServerFactoryPrxHelper.checkedCast(comm.stringToProxy(factoryRef));
+                    test(fact != null);
+                    d = createServerProps(defaultProperties, "s_rsa_ca1", "cacert1");
+                    d["IceSSL.VerifyPeer"] = "2";
+                    d["IceSSL.Protocols"] = "tls1_1, tls1_2";
+                    server = fact.createServer(d);
                     server.ice_ping();
+                    fact.destroyServer(server);
+                    comm.destroy();
                 }
-                catch(Ice.LocalException ex)
-                {
-                    if(ex.ToString().IndexOf("no protocols available") < 0) // Expected if TLS1.1 is disabled (RHEL8)
-                    {
-                        Console.WriteLine(ex.ToString());
-                        test(false);
-                    }
-                }
-                fact.destroyServer(server);
-                comm.destroy();
 
                 try
                 {
@@ -1335,28 +1352,6 @@ public class AllTests
                 catch(Ice.ConnectionLostException)
                 {
                     // Expected.
-                }
-                catch(Ice.LocalException ex)
-                {
-                    Console.WriteLine(ex.ToString());
-                    test(false);
-                }
-                fact.destroyServer(server);
-                comm.destroy();
-
-                //
-                // This should success because the client and the server enables SSLv3
-                //
-                comm = Ice.Util.initialize(ref args, initData);
-                fact = Test.ServerFactoryPrxHelper.checkedCast(comm.stringToProxy(factoryRef));
-                test(fact != null);
-                d = createServerProps(defaultProperties, "s_rsa_ca1", "cacert1");
-                d["IceSSL.VerifyPeer"] = "2";
-                d["IceSSL.Protocols"] = "ssl3, tls1_0, tls1_1, tls1_2";
-                server = fact.createServer(d);
-                try
-                {
-                    server.ice_ping();
                 }
                 catch(Ice.LocalException ex)
                 {
@@ -2297,16 +2292,17 @@ public class AllTests
             }
             Console.Out.WriteLine("ok");
 
-            Console.Out.Write("testing IceSSL.FindCerts properties... ");
-            Console.Out.Flush();
+            if(!IceInternal.AssemblyUtil.isMacOS)
             {
+                Console.Out.Write("testing IceSSL.FindCerts properties... ");
+                Console.Out.Flush();
                 string[] clientFindCertProperties = new string[]
                 {
                     "SUBJECTDN:'CN=Client, OU=Ice, O=\"ZeroC, Inc.\", L=Jupiter, S=Florida, C=US, E=info@zeroc.com'",
                     "ISSUER:'ZeroC, Inc.' SUBJECT:Client SERIAL:02",
                     "ISSUERDN:'CN=ZeroC Test CA 1, OU=Ice, O=\"ZeroC, Inc.\",L=Jupiter, S=Florida, C=US,E=info@zeroc.com' SUBJECT:Client",
-                    "THUMBPRINT:'82 30 1E 35 9E 39 C1 D0 63 0D 67 3D 12 DD D4 96 90 1E EF 54'",
-                    "SUBJECTKEYID:'FC 5D 4F AB F0 6C 03 11 B8 F3 68 CF 89 54 92 3F F9 79 2A 06'"
+                    "THUMBPRINT:'8B D3 64 6B 9E 80 AE 56 08 05 0F C8 DE 9B B0 4B CC FD 4D 9C'",
+                    "SUBJECTKEYID:'7F 4D BF 80 65 E0 EE A4 18 D5 6A 87 33 63 B3 76 7D 42 82 06'"
                 };
 
                 string[] serverFindCertProperties = new string[]
@@ -2314,8 +2310,8 @@ public class AllTests
                     "SUBJECTDN:'CN=Server, OU=Ice, O=\"ZeroC, Inc.\", L=Jupiter, S=Florida, C=US, E=info@zeroc.com'",
                     "ISSUER:'ZeroC, Inc.' SUBJECT:Server SERIAL:01",
                     "ISSUERDN:'CN=ZeroC Test CA 1, OU=Ice, O=\"ZeroC, Inc.\", L=Jupiter, S=Florida, C=US,E=info@zeroc.com' SUBJECT:Server",
-                    "THUMBPRINT:'C0 01 FF 9C C9 DA C8 0D 34 F6 2F DE 09 FB 28 0D 69 AB 78 BA'",
-                    "SUBJECTKEYID:'47 84 AE F9 F2 85 3D 99 30 6A 03 38 41 1A B9 EB C3 9C B5 4D'"
+                    "THUMBPRINT:'F2 EB 9D E7 A5 DB 32 2B AC 5B 4F 88 8F 5E 62 57 2E 2F 7B 8C'",
+                    "SUBJECTKEYID:'EB 4A 7A 79 09 65 0F 45 40 E8 8C E6 A8 27 74 34 AB EA AF 48'"
                 };
 
                 string[] failFindCertProperties = new string[]
@@ -2336,15 +2332,6 @@ public class AllTests
                 X509Store certStore = new X509Store("My", StoreLocation.CurrentUser);
                 certStore.Open(OpenFlags.ReadWrite);
                 var storageFlags = X509KeyStorageFlags.DefaultKeySet;
-                if(IceInternal.AssemblyUtil.isMacOS)
-                {
-                    //
-                    // On macOS, we need to mark the key exportable because the addition of the key to the
-                    // cert store requires to move the key from on keychain to another (which requires the
-                    // Exportable flag... see https://github.com/dotnet/corefx/issues/25631)
-                    //
-                    storageFlags |= X509KeyStorageFlags.Exportable;
-                }
                 try
                 {
                     foreach(string cert in certificates)
@@ -2441,8 +2428,8 @@ public class AllTests
                         test(false);
                     }
                 }
+                Console.Out.WriteLine("ok");
             }
-            Console.Out.WriteLine("ok");
 
             Console.Out.Write("testing system CAs... ");
             Console.Out.Flush();
