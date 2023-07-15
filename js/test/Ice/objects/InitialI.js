@@ -225,6 +225,15 @@
             return false;
         }
 
+        setCycle(r, current)
+        {
+        }
+
+        acceptsClassCycles(current)
+        {
+            return true;
+        }
+
         getMB(current)
         {
             return this._b1;
@@ -343,6 +352,11 @@
         hasF3(current)
         {
             return true;
+        }
+
+        opN(p1, current)
+        {
+            return p1;
         }
 
         shutdown(current)

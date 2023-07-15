@@ -324,7 +324,15 @@ Gen::TypesVisitor::visitClassDefStart(const ClassDefPtr& p)
 
     ClassList allBases = p->allBases();
     StringList allIds;
+#ifdef ICE_CPP11_COMPILER
+    transform(allBases.begin(), allBases.end(), back_inserter(allIds),
+              [](const ContainedPtr& it)
+              {
+                  return it->scoped();
+              });
+#else
     transform(allBases.begin(), allBases.end(), back_inserter(allIds), ::IceUtil::constMemFun(&Contained::scoped));
+#endif
     allIds.push_back(p->scoped());
     allIds.push_back("::Ice::Object");
     allIds.sort();
@@ -434,6 +442,7 @@ Gen::TypesVisitor::visitExceptionStart(const ExceptionPtr& p)
     const DataMemberList members = p->dataMembers();
     const DataMemberList allMembers = p->allDataMembers();
     const DataMemberList baseMembers = base ? base->allDataMembers() : DataMemberList();
+    const DataMemberList optionalMembers = p->orderedOptionalDataMembers();
 
     StringPairList extraParams;
     if(p->isLocal())
@@ -457,7 +466,7 @@ Gen::TypesVisitor::visitExceptionStart(const ExceptionPtr& p)
     {
         writeDefaultInitializer(out, true, rootClass);
     }
-    writeMemberwiseInitializer(out, members, baseMembers, allMembers, p, p->isLocal(), rootClass, extraParams);
+    writeMemberwiseInitializer(out, members, baseMembers, allMembers, p, rootClass, extraParams);
 
     out << sp;
     out << nl << "/// Returns the Slice type ID of this exception.";
@@ -489,7 +498,17 @@ Gen::TypesVisitor::visitExceptionStart(const ExceptionPtr& p)
             << (!base ? "true" : "false") << ")";
         for(DataMemberList::const_iterator i = members.begin(); i != members.end(); ++i)
         {
-            writeMarshalUnmarshalCode(out, (*i)->type(), p, "self." + fixIdent((*i)->name()), true, (*i)->tag());
+            DataMemberPtr member = *i;
+            if(!member->optional())
+            {
+                writeMarshalUnmarshalCode(out, member->type(), p, "self." + fixIdent(member->name()), true);
+            }
+        }
+
+        for(DataMemberList::const_iterator i = optionalMembers.begin(); i != optionalMembers.end(); ++i)
+        {
+            DataMemberPtr member = *i;
+            writeMarshalUnmarshalCode(out, member->type(), p, "self." + fixIdent(member->name()), true, member->tag());
         }
         out << nl << "ostr.endSlice()";
         if(base)
@@ -505,8 +524,19 @@ Gen::TypesVisitor::visitExceptionStart(const ExceptionPtr& p)
         out << nl << "_ = try istr.startSlice()";
         for(DataMemberList::const_iterator i = members.begin(); i != members.end(); ++i)
         {
-            writeMarshalUnmarshalCode(out, (*i)->type(), p, "self." + fixIdent((*i)->name()), false, (*i)->tag());
+            DataMemberPtr member = *i;
+            if(!member->optional())
+            {
+                writeMarshalUnmarshalCode(out, member->type(), p, "self." + fixIdent(member->name()), false);
+            }
         }
+
+        for(DataMemberList::const_iterator i = optionalMembers.begin(); i != optionalMembers.end(); ++i)
+        {
+            DataMemberPtr member = *i;
+            writeMarshalUnmarshalCode(out, member->type(), p, "self." + fixIdent(member->name()), false, member->tag());
+        }
+
         out << nl << "try istr.endSlice()";
         if(base)
         {
@@ -734,8 +764,11 @@ Gen::TypesVisitor::visitSequence(const SequencePtr& p)
         out << nl << "var v = " << fixIdent(name) << "(repeating: nil, count: sz)";
         out << nl << "for i in 0 ..< sz";
         out << sb;
-        out << nl << "let p = UnsafeMutablePointer<" << typeToString(p->type(), p) << ">(&v[i])";
+        out << nl << "try Swift.withUnsafeMutablePointer(to: &v[i])";
+        out << sb;
+        out << " p in";
         writeMarshalUnmarshalCode(out, type, p, "p.pointee", false);
+        out << eb;
         out << eb;
     }
     else
@@ -885,15 +918,20 @@ Gen::TypesVisitor::visitDictionary(const DictionaryPtr& p)
         string keyParam = "let key: " + keyType;
         writeMarshalUnmarshalCode(out, p->keyType(), p, keyParam, false);
         out << nl << "v[key] = nil as " << valueType;
+        out << nl << "Swift.withUnsafeMutablePointer(to: &v[key, default:nil])";
+        out << sb;
         out << nl << "e.values[i] = Ice.DictEntry<" << keyType << ", " << valueType << ">("
             << "key: key, "
-            << "value: UnsafeMutablePointer<" << valueType << ">(&v[key, default:nil]))";
+            << "value: $0)";
+        out << eb;
         writeMarshalUnmarshalCode(out, p->valueType(), p, "e.values[i].value.pointee", false);
         out << eb;
 
         out << nl << "for i in 0..<sz" << sb;
-        out << nl << "e.values[i].value = Swift.UnsafeMutablePointer<" << valueType
-            << ">(&v[e.values[i].key, default:nil])";
+        out << nl << "Swift.withUnsafeMutablePointer(to: &v[e.values[i].key, default:nil])";
+        out << sb;
+        out << nl << "e.values[i].value = $0";
+        out << eb;
         out << eb;
     }
     else
@@ -1417,7 +1455,7 @@ Gen::ValueVisitor::visitClassDefStart(const ClassDefPtr& p)
     {
         writeDefaultInitializer(out, true, !base);
     }
-    writeMemberwiseInitializer(out, members, baseMembers, allMembers, p, p->isLocal(), !base);
+    writeMemberwiseInitializer(out, members, baseMembers, allMembers, p, !base);
 
     out << sp;
     out << nl << "/// Returns the Slice type ID of the most-derived interface supported by this object.";
@@ -1579,7 +1617,15 @@ Gen::ObjectVisitor::visitClassDefStart(const ClassDefPtr& p)
     const OperationList allOps = p->allOperations();
 
     StringList allOpNames;
+#ifdef ICE_CPP11_COMPILER
+    transform(allOps.begin(), allOps.end(), back_inserter(allOpNames),
+              [](const ContainedPtr& it)
+              {
+                  return it->name();
+              });
+#else
     transform(allOps.begin(), allOps.end(), back_inserter(allOpNames), ::IceUtil::constMemFun(&Contained::name));
+#endif
 
     allOpNames.push_back("ice_id");
     allOpNames.push_back("ice_ids");

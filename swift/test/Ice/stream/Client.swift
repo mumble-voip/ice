@@ -8,11 +8,13 @@ import TestCommon
 
 public class Client: TestHelperI {
     public override func run(args: [String]) throws {
-        var writer = getWriter()
+        let writer = getWriter()
         writer.write("testing primitive types... ")
 
+        let properties = try createTestProperties(args)
+        properties.setProperty(key: "Ice.AcceptClassCycles", value: "1")
         var initData = Ice.InitializationData()
-        initData.properties = try createTestProperties(args)
+        initData.properties = properties
         initData.classResolverPrefix = ["IceStrem"]
         let communicator = try initialize(initData)
         defer {

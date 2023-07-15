@@ -8,8 +8,6 @@ import TestCommon
 
 class Collocated: TestHelperI {
     public override func run(args: [String]) throws {
-        let writer = getWriter()
-
         let properties = try createTestProperties(args)
         properties.setProperty(key: "Ice.ThreadPool.Client.Size", value: "2")
         properties.setProperty(key: "Ice.ThreadPool.Client.SizeWarn", value: "0")
@@ -23,7 +21,7 @@ class Collocated: TestHelperI {
         let adapter = try communicator.createObjectAdapter("TestAdapter")
         try adapter.add(servant: MyDerivedClassDisp(MyDerivedClassI()),
                         id: Ice.stringToIdentity("test"))
-        //try adapter.activate() // Don't activate OA to ensure collocation is used.
+        // try adapter.activate() // Don't activate OA to ensure collocation is used.
         _ = try allTests(self)
     }
 }

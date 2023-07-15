@@ -102,7 +102,7 @@ SliceCompile.command.*.log
 *.nupkg
 
 **/netstandard2.0/netstandard2.0/*
-**/netstandard2.0/netcoreapp3.0/*
+**/netstandard2.0/netcoreapp3.*/*
 
 AppPackages
 BundleArtifacts
@@ -119,4 +119,11 @@ Carthage
 
 **/objs-*/
 **/build-*/
+
+.classpath
+.project
+.settings
+*.dep
+# Android Tets
+**/android/**/raw/*.bks
 .vscode/settings.json

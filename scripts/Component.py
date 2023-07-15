@@ -35,9 +35,6 @@ class Ice(Component):
         "mx" : [True],
     }
 
-    def __init__(self):
-        self.nugetVersion = None
-
     def useBinDist(self, mapping, current):
         return Component._useBinDist(self, mapping, current, "ICE_BIN_DIST")
 
@@ -184,7 +181,7 @@ class Ice(Component):
         if parent not in ["Ice", "IceBox", "IceGrid", "Glacier2", "IceStorm", "IceDiscovery", "IceBridge"]:
             return None
 
-        if not isinstance(testcase, ClientServerTestCase):
+        if isinstance(testcase, CollocatedTestCase):
             return None
 
         # Define here Ice tests which are slow to execute and for which it's not useful to test different options
@@ -192,7 +189,7 @@ class Ice(Component):
             return self.serviceOptions
 
         # We only run the client/server tests defined for cross testing with all transports
-        if testcase.__class__.__name__ == 'ClientServerTestCase' and self.isCross(testcase.getTestSuite().getId()):
+        if isinstance(testcase, ClientServerTestCase) and self.isCross(testcase.getTestSuite().getId()):
             return self.transportOptions
         elif parent in ["Ice", "IceBox"]:
             return self.coreOptions
@@ -269,9 +266,9 @@ for m in filter(lambda x: os.path.isdir(os.path.join(toplevel, x)), os.listdir(t
 
 if isinstance(platform, Windows):
     # Windows doesn't support all the mappings, we take them out here.
-    if platform.getCompiler() not in ["v140", "v141"]:
+    if platform.getCompiler() not in ["v140", "v141", "v142", "v143"]:
         Mapping.disable("python")
-    if platform.getCompiler() not in ["v140", "v141"]:
+    if platform.getCompiler() not in ["v140", "v141", "v142"]:
         Mapping.disable("php")
 
 #

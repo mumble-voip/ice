@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (c) ZeroC, Inc. All rights reserved.
 #
@@ -21,7 +21,7 @@ class InitialI(Test.Initial):
         raise Test.OptionalException(False, a, b, o)
 
     def opDerivedException(self, a, b, o, current=None):
-        raise Test.DerivedException(False, a, b, o, b, o)
+        raise Test.DerivedException(False, a, b, o, "d1", b, o, "d2")
 
     def opRequiredException(self, a, b, o, current=None):
         e = Test.RequiredException()
@@ -165,6 +165,12 @@ class InitialI(Test.Initial):
 
     def opMG2(self, p1, current):
         return Test.Initial.OpMG2MarshaledResult((p1, p1), current)
+
+    def opRequiredAfterOptional(self, p1, p2, p3, current):
+        return (p1, p2, p3)
+
+    def opOptionalAfterRequired(self, p1, p2, p3, current):
+        return (p1, p2, p3)
 
     def supportsRequiredParams(self, current=None):
         return False

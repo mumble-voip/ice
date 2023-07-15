@@ -137,7 +137,13 @@ Slice::fixIdent(const string& ident)
         return lookupKwd(ident);
     }
     StringList ids = splitScopedName(ident);
+
+#ifdef ICE_CPP11_COMPILER
+    transform(ids.begin(), ids.end(), ids.begin(), [](const string& id) -> string { return lookupKwd(id); });
+#else
     transform(ids.begin(), ids.end(), ids.begin(), ptr_fun(lookupKwd));
+#endif
+
     ostringstream result;
     for(StringList::const_iterator i = ids.begin(); i != ids.end(); ++i)
     {
@@ -1508,7 +1514,7 @@ SwiftGenerator::writeMemberwiseInitializer(IceUtilInternal::Output& out,
                                            const DataMemberList& members,
                                            const ContainedPtr& p)
 {
-    writeMemberwiseInitializer(out, members, DataMemberList(), members, p, false, true);
+    writeMemberwiseInitializer(out, members, DataMemberList(), members, p, true);
 }
 
 void
@@ -1517,7 +1523,6 @@ SwiftGenerator::writeMemberwiseInitializer(IceUtilInternal::Output& out,
                                            const DataMemberList& baseMembers,
                                            const DataMemberList& allMembers,
                                            const ContainedPtr& p,
-                                           bool local,
                                            bool rootClass,
                                            const StringPairList& extraParams)
 {
@@ -1525,11 +1530,6 @@ SwiftGenerator::writeMemberwiseInitializer(IceUtilInternal::Output& out,
     {
         out << sp;
         out << nl;
-        int typeCtx = TypeContextInParam;
-        if(local)
-        {
-            typeCtx |= TypeContextLocal;
-        }
         out << "public init" << spar;
         for(DataMemberList::const_iterator i = allMembers.begin(); i != allMembers.end(); ++i)
         {

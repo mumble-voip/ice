@@ -1097,7 +1097,9 @@ namespace Ice
             try
             {
                 var f = new BinaryFormatter(null, new StreamingContext(StreamingContextStates.All, _instance));
+#pragma warning disable SYSLIB0011 // Type or member is obsolete
                 return f.Deserialize(new IceInternal.InputStreamWrapper(sz, this));
+#pragma warning restore SYSLIB0011 // Type or member is obsolete
             }
             catch(System.Exception ex)
             {
@@ -2454,16 +2456,24 @@ namespace Ice
         /// corresponding instance has been fully unmarshaled.</param>
         public void readValue<T>(System.Action<T> cb) where T : Value
         {
-            readValue(v => {
-                if(v == null || v is T)
-                {
-                    cb((T)v);
-                }
-                else
-                {
-                    IceInternal.Ex.throwUOE(typeof(T), v);
-                }
-            });
+            initEncaps();
+            if (cb == null)
+            {
+                _encapsStack.decoder.readValue(null);
+            }
+            else
+            {
+                _encapsStack.decoder.readValue(v => {
+                    if (v == null || v is T)
+                    {
+                        cb((T)v);
+                    }
+                    else
+                    {
+                        IceInternal.Ex.throwUOE(typeof(T), v);
+                    }
+                });
+            }
         }
 
         /// <summary>
@@ -2474,8 +2484,7 @@ namespace Ice
         /// corresponding instance has been fully unmarshaled.</param>
         public void readValue(System.Action<Value> cb)
         {
-            initEncaps();
-            _encapsStack.decoder.readValue(cb);
+            readValue<Value>(cb);
         }
 
         /// <summary>

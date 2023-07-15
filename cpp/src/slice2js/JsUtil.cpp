@@ -214,7 +214,7 @@ string
 Slice::JsGenerator::getModuleMetadata(const ContainedPtr& p)
 {
     //
-    // Check if the file contains the js:module global metadata.
+    // Check if the file contains the js:module file metadata.
     //
     DefinitionContextPtr dc = p->definitionContext();
     assert(dc);
@@ -891,7 +891,16 @@ Slice::JsGenerator::writeMarshalUnmarshalCode(Output &out,
         }
         else
         {
-            out << nl << stream << ".readValue(obj => " << param << " = obj, " << typeToString(type) << ");";
+            out << nl << stream << ".readValue(obj => " << param << " = obj, ";
+            ClassDeclPtr cl = ClassDeclPtr::dynamicCast(type);
+            if(cl && cl->isInterface())
+            {
+                out << "Ice.Value);";
+            }
+            else
+            {
+                out << typeToString(type) << ");";
+            }
         }
         return;
     }

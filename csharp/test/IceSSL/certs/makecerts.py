@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (c) ZeroC, Inc. All rights reserved.
 #
@@ -32,7 +32,6 @@ def usage():
     print("Options:")
     print("-h               Show this message.")
     print("-d | --debug     Debugging output.")
-    print("--clean          Clean the CA database first.")
     print("--force          Re-save all the files even if they already exists.")
     sys.exit(1)
 

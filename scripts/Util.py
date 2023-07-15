@@ -4,6 +4,7 @@
 
 import os, sys, runpy, getopt, traceback, types, threading, time, datetime, re, itertools, random, subprocess, shutil
 import copy, inspect, xml.sax.saxutils
+from platform import machine as platform_machine
 
 isPython2 = sys.version_info[0] == 2
 if isPython2:
@@ -78,7 +79,7 @@ class to provide component specific information.
 class Component(object):
 
     def __init__(self):
-        self.nugetVersion = None
+        self.nugetVersion = {}
 
     """
     Returns whether or not to use the binary distribution.
@@ -114,7 +115,7 @@ class Component(object):
                                       "net" if isinstance(mapping, CSharpMapping) else platform.getPlatformToolset())
 
     def getNugetPackageVersion(self, mapping):
-        if not self.nugetVersion:
+        if not mapping in self.nugetVersion:
             file = self.getNugetPackageVersionFile(mapping)
             if file.endswith(".nuspec"):
                 expr = "<version>(.*)</version>"
@@ -124,10 +125,10 @@ class Component(object):
                 with open(file, "r") as config:
                     m = re.search(expr, config.read())
                     if m:
-                        self.nugetVersion = m.group(1)
-        if not self.nugetVersion:
+                        self.nugetVersion[mapping] = m.group(1)
+        if not mapping in self.nugetVersion:
             raise RuntimeError("couldn't figure out the nuget version from `{0}'".format(file))
-        return self.nugetVersion
+        return self.nugetVersion[mapping]
 
     def getNugetPackageVersionFile(self, mapping):
         raise RuntimeError("must be overriden if component provides C++ or C# nuget packages")
@@ -213,10 +214,8 @@ class Platform(object):
 
     def __init__(self):
         try:
-            version = run("dotnet --version").split(".")
             self.nugetPackageCache = re.search("global-packages: (.*)",
                                                run("dotnet nuget locals --list global-packages")).groups(1)[0]
-            self.defaultNetCoreFramework = "netcoreapp{}".format("3.1" if int(version[0]) >= 3 else "2.1")
         except:
             self.nugetPackageCache = None
 
@@ -334,7 +333,10 @@ class AIX(Platform):
 
     def _getLibDir(self, component, process, mapping, current):
         installDir = component.getInstallDir(mapping, current)
-        return os.path.join(installDir, "lib32" if current.config.buildPlatform == "ppc" else "lib")
+        if component.useBinDist(mapping, current):
+            return os.path.join(installDir, "lib")
+        else:
+            return os.path.join(installDir, "lib32" if current.config.buildPlatform == "ppc" else "lib")
 
     def getDefaultBuildPlatform(self):
         return "ppc64"
@@ -440,6 +442,8 @@ class Windows(Platform):
                     self.compiler = "v141"
                 elif out.find("Version 19.2") != -1:
                     self.compiler = "v142"
+                elif out.find("Version 19.3") != -1:
+                    self.compiler = "v143"
                 else:
                     raise RuntimeError("Unknown compiler version:\n{0}".format(out))
             except:
@@ -483,6 +487,8 @@ class Windows(Platform):
             config = "Debug" if current.driver.configs[mapping].buildConfig.find("Debug") >= 0 else "Release"
             if isinstance(mapping, PhpMapping):
                 return os.path.join(installDir, "lib", "php-{0}".format(current.config.phpVersion), platform, config)
+            if isinstance(mapping, MatlabMapping):
+                return os.path.join(installDir, "lib", platform, config)
             elif component.useBinDist(mapping, current):
                 return os.path.join(installDir, "build", "native", "bin", platform, config)
             else:
@@ -503,7 +509,7 @@ class Windows(Platform):
         return None # No default installation directory on Windows
 
     def getNugetPackageDir(self, component, mapping, current):
-        if isinstance(mapping, CSharpMapping) and current.config.dotnetcore:
+        if isinstance(mapping, CSharpMapping) and current.config.dotnet:
             return Platform.getNugetPackageDir(self, component, mapping, current)
         else:
             package = "{0}.{1}".format(component.getNugetPackage(mapping), component.getNugetPackageVersion(mapping))
@@ -516,7 +522,7 @@ class Windows(Platform):
 
     def getDotNetExe(self):
         try:
-            return run("where dotnet").strip()
+            return run("where dotnet").strip().splitlines()[0]
         except:
             return None
 
@@ -618,13 +624,14 @@ class Mapping(object):
             self.browser = ""
             self.es5 = False
             self.worker = False
-            self.dotnetcore = False
+            self.dotnet = False
             self.framework = ""
             self.android = False
             self.xamarin = False
             self.device = ""
             self.avd = ""
             self.phpVersion = "7.1"
+            self.python = sys.executable
 
             parseOptions(self, options, { "config" : "buildConfig", "platform" : "buildPlatform" })
 
@@ -800,7 +807,8 @@ class Mapping(object):
     @classmethod
     def getByName(self, name):
         if not name in self.mappings:
-            raise RuntimeError("unknown mapping `{0}'".format(name))
+            raise RuntimeError("unknown mapping: `{0}', known mappings: `{1}'".format(
+                name, list(self.mappings)))
         return self.mappings.get(name)
 
     @classmethod
@@ -884,6 +892,8 @@ class Mapping(object):
     def loadTestSuites(self, tests, config, filters=[], rfilters=[]):
         global currentMapping
         currentMapping = self
+        global currentConfig
+        currentConfig = config
         try:
             origsyspath = sys.path
             prefix = os.path.commonprefix([toplevel, self.component.getScriptDir()])
@@ -1416,7 +1426,7 @@ class ProcessFromBinDir:
 
 #
 # Executables for processes inheriting this marker class are only provided
-# as a Release executble on Windows
+# as a Release executable on Windows
 #
 class ProcessIsReleaseOnly:
 
@@ -1430,20 +1440,13 @@ class SliceTranslator(ProcessFromBinDir, ProcessIsReleaseOnly, SimpleClient):
 
     def getCommandLine(self, current, args=""):
         #
-        # Look for slice2py installed by Pip if not found in the bin directory
+        # Look for slice2py installed by pip if not found in the bin directory
         #
         if self.exe == "slice2py":
             translator = self.getMapping(current).getCommandLine(current, self, self.getExe(current), "")
-            if os.path.exists(translator):
-                return translator + " " + args if args else translator
-            elif isinstance(platform, Windows):
-                return os.path.join(os.path.dirname(sys.executable), "Scripts", "slice2py.exe")
-            elif os.path.exists("/usr/local/bin/slice2py"):
-                return "/usr/local/bin/slice2py"
-            else:
-                import slice2py
-                return sys.executable + " " + os.path.normpath(
-                            os.path.join(slice2py.__file__, "..", "..", "..", "..", "bin", "slice2py"))
+            if not os.path.exists(translator):
+                translator = sys.executable + " -m slice2py"
+            return (translator + " " + args).strip()
         else:
             return Process.getCommandLine(self, current, args)
 
@@ -1903,7 +1906,7 @@ class Result:
             if hostname:
                 name += " on " + hostname
             out.write('    <testcase name="{0}" time="{1:.9f}" classname="{2}.{3}">\n'
-                      .format(name,
+                      .format(escapeXml(name),
                               d,
                               self.testsuite.getMapping(),
                               self.testsuite.getId().replace("/", ".")))
@@ -2391,7 +2394,7 @@ class AndroidProcessController(RemoteProcessController):
             raise RuntimeError("cannot find free port in range 5554-5584, to run android emulator")
 
         self.device = "emulator-{}".format(port)
-        cmd = "emulator -avd {0} -port {1} -noaudio -partition-size 768 -no-snapshot".format(avd, port)
+        cmd = "emulator -avd {0} -port {1} -no-audio -partition-size 768 -no-snapshot -gpu auto -no-boot-anim -no-window".format(avd, port)
         self.emulator = subprocess.Popen(cmd, shell=True)
 
         if self.emulator.poll():
@@ -2430,16 +2433,21 @@ class AndroidProcessController(RemoteProcessController):
             sdk = current.testcase.getMapping().getSDKPackage()
             print("creating virtual device ({0})... ".format(sdk))
             try:
-                run("avdmanager delete avd -n IceTests") # Delete the created device
+                run("avdmanager -v delete avd -n IceTests") # Delete the created device
             except:
                 pass
             # The SDK is downloaded by test VMs instead of here.
             #run("sdkmanager \"{0}\"".format(sdk), stdout=True, stdin="yes", stdinRepeat=True) # yes to accept licenses
-            run("avdmanager create avd -k \"{0}\" -d \"Nexus 6\" -n IceTests".format(sdk))
+            run("avdmanager -v create avd -k \"{0}\" -d \"Nexus 6\" -n IceTests".format(sdk))
             self.startEmulator("IceTests")
         elif current.config.device != "usb":
             run("adb connect {}".format(current.config.device))
 
+        # First try uninstall in case the controller was left behind from a previous run
+        try:
+            run("{} shell pm uninstall com.zeroc.testcontroller".format(self.adb()))
+        except:
+            pass
         run("{} install -t -r {}".format(self.adb(), current.testcase.getMapping().getApk(current)))
         run("{} shell am start -n \"{}\" -a android.intent.action.MAIN -c android.intent.category.LAUNCHER".format(
             self.adb(), current.testcase.getMapping().getActivityName()))
@@ -2458,7 +2466,7 @@ class AndroidProcessController(RemoteProcessController):
 
             if self.avd == "IceTests":
                 try:
-                    run("avdmanager delete avd -n IceTests") # Delete the created device
+                    run("avdmanager -v delete avd -n IceTests") # Delete the created device
                 except:
                     pass
 
@@ -2484,7 +2492,7 @@ class AndroidProcessController(RemoteProcessController):
 class iOSSimulatorProcessController(RemoteProcessController):
 
     device = "iOSSimulatorProcessController"
-    deviceID = "com.apple.CoreSimulator.SimDeviceType.iPhone-X"
+    deviceID = "com.apple.CoreSimulator.SimDeviceType.iPhone-13"
 
     def __init__(self, current):
         RemoteProcessController.__init__(self, current, "tcp -h 0.0.0.0 -p 15001" if current.config.xamarin else None)
@@ -2499,7 +2507,7 @@ class iOSSimulatorProcessController(RemoteProcessController):
         except:
             pass
         if not self.runtimeID:
-            self.runtimeID = "com.apple.CoreSimulator.SimRuntime.iOS-12-0" # Default value
+            self.runtimeID = "com.apple.CoreSimulator.SimRuntime.iOS-15-2" # Default value
 
     def __str__(self):
         return "iOS Simulator ({})".format(self.runtimeID.replace("com.apple.CoreSimulator.SimRuntime.", "").strip())
@@ -2519,21 +2527,25 @@ class iOSSimulatorProcessController(RemoteProcessController):
         except Exception as ex:
             if str(ex).find("Booted") >= 0:
                 pass
-            elif str(ex).find("Invalid device") >= 0:
+            elif str(ex).find("Invalid device") >= 0 or str(ex).find("Assertion failure in SimDevicePair"):
                 #
                 # Create the simulator device if it doesn't exist
+                #
+                self.simulatorID = run("xcrun simctl create \"{0}\" {1} {2}".format(self.device, self.deviceID, self.runtimeID))
+                run("xcrun simctl boot \"{0}\"".format(self.device))
+                run("xcrun simctl bootstatus \"{0}\"".format(self.device)) # Wait for the boot to complete
+                #
+                # This not longer works on iOS 15 simulator, fails with:
+                #   "Could not write domain com.apple.springboard; exiting"
                 #
                 # We update the watchdog timer scale to prevent issues with the controller app taking too long
                 # to start on the simulator. The security validation of the app can take a significant time and
                 # causes the watch dog to kick-in leaving the springboard app in a bogus state where it's not
                 # possible to terminate and restart the controller
                 #
-                self.simulatorID = run("xcrun simctl create \"{0}\" {1} {2}".format(self.device, self.deviceID, self.runtimeID))
-                run("xcrun simctl boot \"{0}\"".format(self.device))
-                run("xcrun simctl bootstatus \"{0}\"".format(self.device)) # Wait for the boot to complete
-                run("xcrun simctl spawn \"{0}\" defaults write com.apple.springboard FBLaunchWatchdogScale 20".format(self.device))
-                run("xcrun simctl shutdown \"{0}\"".format(self.device))
-                run("xcrun simctl boot \"{0}\"".format(self.device))
+                # run("xcrun simctl spawn \"{0}\" defaults write com.apple.springboard FBLaunchWatchdogScale 20".format(self.device))
+                # run("xcrun simctl shutdown \"{0}\"".format(self.device))
+                # run("xcrun simctl boot \"{0}\"".format(self.device))
             else:
                 raise
         print("ok")
@@ -2849,6 +2861,7 @@ class BrowserProcessController(RemoteProcessController):
             raise ex
 
     def destroy(self, driver):
+        RemoteProcessController.destroy(self, driver)
         if self.httpServer:
             self.httpServer.terminate()
             self.httpServer = None
@@ -3112,7 +3125,7 @@ class Driver:
         # initData.properties.setProperty("Ice.Trace.Network", "2")
         # initData.properties.setProperty("Ice.StdErr", "allTests.log")
         initData.properties.setProperty("Ice.Override.Timeout", "10000")
-        initData.properties.setProperty("Ice.Override.ConnectTimeout", "1000")
+        initData.properties.setProperty("Ice.Override.ConnectTimeout", "10000")
         self.communicator = Ice.initialize(initData)
 
     def getProcessController(self, current, process=None):
@@ -3372,7 +3385,8 @@ class JavaMapping(Mapping):
         }[processType]
 
     def getSDKPackage(self):
-        return "system-images;android-27;google_apis;x86"
+        return "system-images;android-33;google_apis;{}".format(
+            "arm64-v8a" if platform_machine() == "arm64" else "x86_64")
 
     def getApk(self, current):
         return os.path.join(self.getPath(), "test", "android", "controller", "build", "outputs", "apk", "debug",
@@ -3408,7 +3422,8 @@ class JavaCompatMapping(JavaMapping):
         return { "CLASSPATH" : os.pathsep.join(classPath) }
 
     def getSDKPackage(self):
-        return "system-images;android-21;google_apis;x86_64"
+        return "system-images;android-33;google_apis;{}".format(
+            "arm64-v8a" if platform_machine() == "arm64" else "x86_64")
 
 class CSharpMapping(Mapping):
 
@@ -3416,28 +3431,25 @@ class CSharpMapping(Mapping):
 
         @classmethod
         def getSupportedArgs(self):
-            return ("", ["dotnetcore", "framework="])
+            return ("", ["framework="])
 
         @classmethod
         def usage(self):
             print("")
-            print("--dotnetcore                    Run C# tests using .NET Core")
-            print("--framework=<TargetFramework>   Choose the framework used to run .NET tests")
+            print("C# mapping options:")
+            print("--framework=net45|net6.0|net7.0   Choose the framework used to run .NET tests")
 
         def __init__(self, options=[]):
             Mapping.Config.__init__(self, options)
 
-            if not self.dotnetcore and not isinstance(platform, Windows):
-                self.dotnetcore = True
+            if self.framework == "":
+                self.framework = "net6.0"
 
-            if self.dotnetcore:
-                self.libTargetFramework = "netstandard2.0"
-                self.binTargetFramework = platform.defaultNetCoreFramework if self.framework == "" else self.framework
-                self.testTargetFramework = platform.defaultNetCoreFramework if self.framework == "" else self.framework
-            else:
-                self.libTargetFramework = "net45" if self.framework == "" else "netstandard2.0"
-                self.binTargetFramework = "net45" if self.framework == "" else self.framework
-                self.testTargetFramework = "net45" if self.framework == "" else self.framework
+            self.dotnet = not isinstance(platform, Windows) or self.framework != "net45"
+
+            self.libTargetFramework = "netstandard2.0" if self.framework != "net45" else self.framework
+            self.binTargetFramework = self.framework
+            self.testTargetFramework = self.framework
 
             # Set Xamarin flag if UWP/iOS or Android testing flag is also specified
             if self.uwp or self.android or "iphone" in self.buildPlatform:
@@ -3453,10 +3465,10 @@ class CSharpMapping(Mapping):
         return current.config.testTargetFramework
 
     def getBuildDir(self, name, current):
-        if current.config.dotnetcore or current.config.framework != "":
-            return os.path.join("msbuild", name, "netstandard2.0", self.getTargetFramework(current))
+        if current.config.framework in ["net45"]:
+            return os.path.join("msbuild", name, current.config.framework)
         else:
-            return os.path.join("msbuild", name, self.getTargetFramework(current))
+            return os.path.join("msbuild", name, "netstandard2.0", self.getTargetFramework(current))
 
     def getProps(self, process, current):
         props = Mapping.getProps(self, process, current)
@@ -3525,7 +3537,7 @@ class CSharpMapping(Mapping):
                 env['PATH'] = os.path.join(self.component.getSourceDir(), "cpp", "msbuild", "packages",
                                            "bzip2.{0}.1.0.6.10".format(platform.getPlatformToolset()),
                                            "build", "native", "bin", "x64", "Release")
-            if not current.config.dotnetcore:
+            if not current.config.dotnet:
                 env['DEVPATH'] = self.component.getLibDir(process, self, current)
         return env
 
@@ -3548,8 +3560,7 @@ class CSharpMapping(Mapping):
         else:
             path = os.path.join(current.testcase.getPath(current), current.getBuildDir(exe))
 
-        useDotnetExe = current.config.dotnetcore and \
-                        (current.config.testTargetFramework in ["netcoreapp2.1"] or process.isFromBinDir())
+        useDotnetExe = process.isFromBinDir() and current.config.testTargetFramework != "net45"
         command = ""
         if useDotnetExe:
             command += "dotnet "
@@ -3562,7 +3573,8 @@ class CSharpMapping(Mapping):
         return command
 
     def getSDKPackage(self):
-        return "system-images;android-27;google_apis;x86"
+        return "system-images;android-33;google_apis;{}".format(
+            "arm64-v8a" if platform_machine() == "arm64" else "x86_64")
 
     def getApk(self, current):
         return os.path.join(self.getPath(), "test", "xamarin", "controller.Android", "bin", current.config.buildConfig,
@@ -3671,8 +3683,33 @@ class PythonMapping(CppBasedMapping):
         mappingName = "python"
         mappingDesc = "Python"
 
+        @classmethod
+        def getSupportedArgs(self):
+            return ("", ["python="])
+
+        @classmethod
+        def usage(self):
+            print("")
+            print("Python mapping options:")
+            print("--python=<interpreter>   Choose the interperter used to run python tests")
+
+        def __init__(self, options=[]):
+            Mapping.Config.__init__(self, options)
+            self.pythonVersion = None
+
+        def getPythonVersion(self):
+            if self.pythonVersion is None:
+                version = subprocess.check_output(
+                    [currentConfig.python,
+                     "-c",
+                     "import sys; print(\"{0}.{1}\".format(sys.version_info[0], sys.version_info[1]))"])
+                if type(version) != str:
+                    version = version.decode("utf-8")
+                self.pythonVersion = tuple(int(num) for num in version.split("."))
+            return self.pythonVersion
+
     def getCommandLine(self, current, process, exe, args):
-        return "\"{0}\"  {1} {2} {3}".format(sys.executable,
+        return "\"{0}\"  {1} {2} {3}".format(current.config.python,
                                              os.path.join(self.path, "test", "TestHelper.py"),
                                              exe,
                                              args)
@@ -3749,7 +3786,7 @@ class PhpMapping(CppBasedClientMapping):
         def usage(self):
             print("")
             print("PHP Mapping options:")
-            print("--php-version=[7.1|7.2|7.3]    PHP Version used for Windows builds")
+            print("--php-version=[7.1|7.2|7.3|8.0|8.1]    PHP Version used for Windows builds")
 
 
         def __init__(self, options=[]):
@@ -3768,7 +3805,9 @@ class PhpMapping(CppBasedClientMapping):
             nugetVersions = {
                 "7.1": "7.1.17",
                 "7.2": "7.2.8",
-                "7.3": "7.3.0"
+                "7.3": "7.3.0",
+                "8.0": "8.0.0.1",
+                "8.1": "8.1.0"
             }
             nugetVersion = nugetVersions[current.config.phpVersion]
             threadSafe = current.driver.configs[self].buildConfig in ["Debug", "Release"]
@@ -3808,10 +3847,14 @@ class MatlabMapping(CppBasedClientMapping):
         mappingDesc = "MATLAB"
 
     def getCommandLine(self, current, process, exe, args):
-        return "matlab -nodesktop -nosplash -wait -log -minimize -r \"cd '{0}', runTest {1} {2} {3}\"".format(
+        matlabHome = os.getenv("MATLAB_HOME")
+        # -wait and -minimize are not available on Linux, -log causes duplicate output to stdout on Linux
+        return "{0} -nodesktop -nosplash{1} -r \"cd '{2}', runTest {3} {4} {5}\"".format(
+            "matlab" if matlabHome is None else os.path.join(matlabHome, "bin", "matlab"),
+            " -wait -log -minimize" if isinstance(platform, Windows) else "",
             os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "matlab", "test", "lib")),
             self.getTestCwd(process, current),
-            os.path.join(current.config.buildPlatform, current.config.buildConfig),
+            current.driver.getComponent().getLibDir(process, self, current),
             args)
 
     def getServerMapping(self, testId=None):
@@ -3832,6 +3875,14 @@ class MatlabMapping(CppBasedClientMapping):
 class JavaScriptMixin():
 
     def loadTestSuites(self, tests, config, filters, rfilters):
+        # Exclude es5 directory, these are the same tests but transpiled with babel the JavaScript mapping
+        # use them when --es5 option is set.
+        rfilters += [re.compile("es5/*")]
+
+        # Exclude typescript directory when the mapping is not typescript otherwise we endup with duplicate entries
+        if self.name != "typescript":
+            rfilters += [re.compile("typescript/*")]
+
         Mapping.loadTestSuites(self, tests, config, filters, rfilters)
         self.getServerMapping().loadTestSuites(list(self.testsuites.keys()) + ["Ice/echo"], config)
 
@@ -3975,11 +4026,16 @@ class SwiftMapping(Mapping):
 
         targetBuildDir = re.search("\sTARGET_BUILD_DIR = (.*)", run(cmd)).groups(1)[0]
 
-        return "{0}/TestDriver.app/Contents/MacOS/TestDriver {1} {2} {3}".format(
-            targetBuildDir,
-            package,
-            exe,
-            args)
+        testDriver = os.path.join(targetBuildDir, "TestDriver.app/Contents/MacOS/TestDriver")
+        if not os.path.exists(testDriver):
+            # Fallback location, required with Xcode 14.2
+            testDriver = os.path.join(
+                current.testcase.getMapping().getPath(),
+                "build",
+                current.config.buildConfig,
+                "TestDriver.app/Contents/MacOS/TestDriver")
+
+        return "{0} {1} {2} {3}".format(testDriver, package, exe, args)
 
     def _getDefaultSource(self, processType):
         return { "client" : "Client.swift",
@@ -4001,7 +4057,16 @@ class SwiftMapping(Mapping):
                                            current.config.buildConfig,
                                            current.config.buildPlatform)
         targetBuildDir = re.search("\sTARGET_BUILD_DIR = (.*)", run(cmd)).groups(1)[0]
-        return "{0}/TestDriver.app".format(targetBuildDir)
+
+        testDriver = os.path.join(targetBuildDir, "TestDriver.app")
+        if not os.path.exists(testDriver):
+            # Fallback location, required with Xcode 14.2
+            testDriver = os.path.join(
+                current.testcase.getMapping().getPath(),
+                "build",
+                "{0}-{1}".format(current.config.buildConfig, current.config.buildPlatform),
+                "TestDriver.app")
+        return testDriver
 
     def getSSLProps(self, process, current):
         props = Mapping.getByName("cpp").getSSLProps(process, current)
@@ -4014,7 +4079,9 @@ class SwiftMapping(Mapping):
 
     def getXcodeProject(self, current):
         return "{0}/{1}".format(current.testcase.getMapping().getPath(),
-                                "ice-test.xcodeproj" if self.component.useBinDist(self, current) else "ice.xcodeproj")
+                                "ice.xcodeproj")
+    # TODO ice-test.xcodeproj once Carthage supports binary XCFramework projects
+    # "ice-test.xcodeproj" if self.component.useBinDist(self, current) else "ice.xcodeproj")
 
 #
 # Instantiate platform global variable

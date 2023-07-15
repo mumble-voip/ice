@@ -1191,13 +1191,13 @@ lookupKwd(const string& name)
     //
     static const string keywordList[] =
     {
-        "alignas", "alignof", "and", "and_eq", "asm", "auto", "bit_and", "bit_or", "bool", "break",
-        "case", "catch", "char", "char16_t", "char32_t", "class", "compl", "const", "const_exptr", "const_cast", "continue",
+        "alignas", "alignof", "and", "and_eq", "asm", "auto", "bitand", "bitor", "bool", "break",
+        "case", "catch", "char", "char16_t", "char32_t", "class", "compl", "const", "const_cast", "constexpr", "continue",
         "decltype", "default", "delete", "do", "double", "dynamic_cast",
         "else", "enum", "explicit", "export", "extern", "false", "float", "for", "friend",
-        "goto", "if", "inline", "int", "long", "mutable", "namespace", "new", "noexcept", "not", "not_eq",
-        "operator", "or", "or_eq", "private", "protected", "public", "register", "reinterpret_cast", "return",
-        "short", "signed", "sizeof", "static", "static_assert", "static_cast", "struct", "switch",
+        "goto", "if", "inline", "int", "long", "mutable", "namespace", "new", "noexcept", "not", "not_eq", "nullptr",
+        "operator", "or", "or_eq", "private", "protected", "public", "register", "reinterpret_cast", "requires",
+        "return", "short", "signed", "sizeof", "static", "static_assert", "static_cast", "struct", "switch",
         "template", "this", "thread_local", "throw", "true", "try", "typedef", "typeid", "typename",
         "union", "unsigned", "using", "virtual", "void", "volatile", "wchar_t", "while", "xor", "xor_eq"
     };
@@ -1257,7 +1257,11 @@ Slice::fixKwd(const string& name)
         return lookupKwd(name);
     }
     StringList ids = splitScopedName(name);
+#ifdef ICE_CPP11_COMPILER
+    transform(ids.begin(), ids.end(), ids.begin(), [](const string& id) -> string { return lookupKwd(id); });
+#else
     transform(ids.begin(), ids.end(), ids.begin(), ptr_fun(lookupKwd));
+#endif
     stringstream result;
     for(StringList::const_iterator i = ids.begin(); i != ids.end(); ++i)
     {

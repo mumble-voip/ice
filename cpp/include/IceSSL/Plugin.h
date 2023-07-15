@@ -32,6 +32,130 @@ namespace IceSSL
 {
 
 /**
+ * The reason for an IceSSL certificate verification failure.
+ */
+#ifdef ICE_CPP11_MAPPING
+enum class TrustError : unsigned char
+#else
+enum TrustError
+#endif
+{
+    /** The certification verification succeed  */
+    NoError = 0,
+    /** The certificate chain length is greater than the specified maximum depth **/
+    ChainTooLong,
+    /** The X509 chain is invalid because a certificate has excluded a name constraint **/
+    HasExcludedNameConstraint,
+    /** The certificate has an undefined name constraint **/
+    HasNonDefinedNameConstraint,
+    /** The certificate has a non permitted name constraint **/
+    HasNonPermittedNameConstraint,
+    /** The certificate does not support a critical extension **/
+    HasNonSupportedCriticalExtension,
+    /** The certificate does not have a supported name constraint or has a name constraint that is unsupported **/
+    HasNonSupportedNameConstraint,
+    /** A host name mismatch has occurred **/
+    HostNameMismatch,
+    /** The X509 chain is invalid due to invalid basic constraints **/
+    InvalidBasicConstraints,
+    /** The X509 chain is invalid due to an invalid extension **/
+    InvalidExtension,
+    /** The X509 chain is invalid due to invalid name constraints **/
+    InvalidNameConstraints,
+    /** The X509 chain is invalid due to invalid policy constraints **/
+    InvalidPolicyConstraints,
+    /** The supplied certificate cannot be used for the specified purpose **/
+    InvalidPurpose,
+    /** The X509 chain is invalid due to an invalid certificate signature **/
+    InvalidSignature,
+    /** The X509 chain is not valid due to an invalid time value, such as a value that indicates an expired
+        certificate **/
+    InvalidTime,
+    /** The certificate is explicitly not trusted **/
+    NotTrusted,
+    /** The X509 chain could not be built up to the root certificate **/
+    PartialChain,
+    /** It is not possible to determine whether the certificate has been revoked **/
+    RevocationStatusUnknown,
+    /** The X509 chain is invalid due to a revoked certificate **/
+    Revoked,
+    /** The X509 chain is invalid due to an untrusted root certificate **/
+    UntrustedRoot,
+    /** The X509 chain is invalid due to other unknown failure **/
+    UnknownTrustFailure,
+};
+
+ICESSL_API TrustError getTrustError(const IceSSL::ConnectionInfoPtr&);
+ICESSL_API std::string getTrustErrorDescription(TrustError);
+ICESSL_API std::string getHost(const IceSSL::ConnectionInfoPtr&);
+
+/**
+ * The key usage "digitalSignature" bit is set
+ */
+const unsigned int KEY_USAGE_DIGITAL_SIGNATURE = 1u << 0;
+/**
+ * The key usage "nonRepudiation" bit is set
+ */
+const unsigned int KEY_USAGE_NON_REPUDIATION = 1u << 1;
+/**
+ * The key usage "keyEncipherment" bit is set
+ */
+const unsigned int KEY_USAGE_KEY_ENCIPHERMENT = 1u << 2;
+/**
+ * The key usage "dataEncipherment" bit is set
+ */
+const unsigned int KEY_USAGE_DATA_ENCIPHERMENT = 1u << 3;
+/**
+ * The key usage "keyAgreement" bit is set
+ */
+const unsigned int KEY_USAGE_KEY_AGREEMENT = 1u << 4;
+/**
+ * The key usage "keyCertSign" bit is set
+ */
+const unsigned int KEY_USAGE_KEY_CERT_SIGN = 1u << 5;
+/**
+ * The key usage "cRLSign" bit is set
+ */
+const unsigned int KEY_USAGE_CRL_SIGN = 1u << 6;
+/**
+ * The key usage "encipherOnly" bit is set
+ */
+const unsigned int KEY_USAGE_ENCIPHER_ONLY = 1u << 7;
+/**
+ * The key usage "decipherOnly" bit is set
+ */
+const unsigned int KEY_USAGE_DECIPHER_ONLY = 1u << 8;
+
+/**
+ * The extended key usage "anyKeyUsage" bit is set
+ */
+const unsigned int EXTENDED_KEY_USAGE_ANY_KEY_USAGE = 1u << 0;
+/**
+ * The extended key usage "serverAuth" bit is set
+ */
+const unsigned int EXTENDED_KEY_USAGE_SERVER_AUTH = 1u << 1;
+/**
+ * The extended key usage "clientAuth" bit is set
+ */
+const unsigned int EXTENDED_KEY_USAGE_CLIENT_AUTH = 1u << 2;
+/**
+ * The extended key usage "codeSigning" bit is set
+ */
+const unsigned int EXTENDED_KEY_USAGE_CODE_SIGNING = 1u << 3;
+/**
+ * The extended key usage "emailProtection" bit is set
+ */
+const unsigned int EXTENDED_KEY_USAGE_EMAIL_PROTECTION = 1u << 4;
+/**
+ * The extended key usage "timeStamping" bit is set
+ */
+const unsigned int EXTENDED_KEY_USAGE_TIME_STAMPING = 1u << 5;
+/**
+ * The extended key usage "OCSPSigning" bit is set
+ */
+const unsigned int EXTENDED_KEY_USAGE_OCSP_SIGNING = 1u << 6;
+
+/**
  * Thrown if the certificate cannot be read.
  * \headerfile IceSSL/IceSSL.h
  */
@@ -342,6 +466,24 @@ public:
 #else
     virtual bool checkValidity(const IceUtil::Time& t) const = 0;
 #endif
+
+    /**
+     * Returns the value of the key usage extension. The flags <b>KEY_USAGE_DIGITAL_SIGNATURE</b>,
+     * <b>KEY_USAGE_NON_REPUDIATION</b>, <b>KEY_USAGE_KEY_ENCIPHERMENT</b>, <b>KEY_USAGE_DATA_ENCIPHERMENT</b>
+     * <b>KEY_USAGE_KEY_AGREEMENT</b>, <b>KEY_USAGE_KEY_CERT_SIGN</b>, <b>KEY_USAGE_CRL_SIGN</b>,
+     * <b>KEY_USAGE_ENCIPHER_ONLY</b> and <b>KEY_USAGE_DECIPHER_ONLY</b> can be used to check what
+     * key usage bits are set.
+     */
+    unsigned int getKeyUsage() const;
+
+    /**
+     * Returns the value of the extended key usage extension. The flags <b>EXTENDED_KEY_USAGE_ANY_KEY_USAGE</b>,
+     * <b>EXTENDED_KEY_USAGE_SERVER_AUTH</b>, <b>EXTENDED_KEY_USAGE_CLIENT_AUTH</b>,
+     * <b>EXTENDED_KEY_USAGE_CODE_SIGNING</b>, <b>EXTENDED_KEY_USAGE_EMAIL_PROTECTION</b>,
+     * <b>EXTENDED_KEY_USAGE_TIME_STAMPING</b> and <b>EXTENDED_KEY_USAGE_OCSP_SIGNING</b> can be used to check what
+     * extended key usage bits are set.
+     */
+    unsigned int getExtendedKeyUsage() const;
 
     /**
      * Obtains the not-after validity time.

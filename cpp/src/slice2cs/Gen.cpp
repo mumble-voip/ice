@@ -393,7 +393,15 @@ Slice::CsVisitor::writeDispatch(const ClassDefPtr& p)
     StringList ids;
     ClassList bases = p->bases();
     bool hasBaseClass = !bases.empty() && !bases.front()->isInterface();
+#ifdef ICE_CPP11_COMPILER
+    transform(allBases.begin(), allBases.end(), back_inserter(ids),
+              [](const ContainedPtr& it)
+              {
+                  return it->scoped();
+              });
+#else
     transform(allBases.begin(), allBases.end(), back_inserter(ids), constMemFun(&Contained::scoped));
+#endif
     StringList other;
     other.push_back(p->scoped());
     other.push_back("::Ice::Object");
@@ -646,7 +654,15 @@ Slice::CsVisitor::writeDispatch(const ClassDefPtr& p)
     if(!allOps.empty() || (!p->isInterface() && !hasBaseClass))
     {
         StringList allOpNames;
+#ifdef ICE_CPP11_COMPILER
+        transform(allOps.begin(), allOps.end(), back_inserter(allOpNames),
+                  [](const ContainedPtr& it)
+                  {
+                      return it->name();
+                  });
+#else
         transform(allOps.begin(), allOps.end(), back_inserter(allOpNames), constMemFun(&Contained::name));
+#endif
         allOpNames.push_back("ice_id");
         allOpNames.push_back("ice_ids");
         allOpNames.push_back("ice_isA");
@@ -762,7 +778,15 @@ Slice::CsVisitor::writeMarshaling(const ClassDefPtr& p)
     StringList ids;
     ClassList bases = p->bases();
 
+#ifdef ICE_CPP11_COMPILER
+    transform(allBases.begin(), allBases.end(), back_inserter(ids),
+              [](const ContainedPtr& it)
+              {
+                  return it->scoped();
+              });
+#else
     transform(allBases.begin(), allBases.end(), back_inserter(ids), constMemFun(&Contained::scoped));
+#endif
     StringList other;
     other.push_back(p->scoped());
     other.push_back("::Ice::Value");
@@ -1280,11 +1304,34 @@ Slice::CsVisitor::editMarkup(const string& s)
         if(pos != string::npos)
         {
             string::size_type endpos = result.find('>', pos);
-            if(endpos == string::npos)
+            string::size_type wspos = result.find(' ', pos);
+            if(endpos == string::npos && wspos == string::npos)
             {
                 break;
             }
-            result.erase(pos, endpos - pos + 1);
+
+            if(wspos < endpos)
+            {
+                // If we found a whitespace before the end tag marker '>', The '<' char doesn't correspond to the start
+                // of a HTML tag, and we replace it with &lt; escape code.
+                result.replace(pos, 1, "&lt;", 4);
+            }
+            else
+            {
+                result.erase(pos, endpos - pos + 1);
+            }
+        }
+    }
+    while(pos != string::npos);
+
+    // replace remaining '>' chars with '&gt;' escape code, tags have been already strip above.
+    pos = 0;
+    do
+    {
+        pos = result.find('>', pos);
+        if(pos != string::npos)
+        {
+            result.replace(pos, 1, "&gt;", 4);
         }
     }
     while(pos != string::npos);
@@ -2571,11 +2618,13 @@ Slice::Gen::TypesVisitor::visitClassDefEnd(const ClassDefPtr& p)
              << p->scoped() << "\";";
 
         _out << sp;
+        emitGeneratedCodeAttribute();
         _out << nl << "public static new string ice_staticId()";
         _out << sb;
         _out << nl << "return _id;";
         _out << eb;
 
+        emitGeneratedCodeAttribute();
         _out << nl << "public override string ice_id()";
         _out << sb;
         _out << nl << "return _id;";
@@ -3002,8 +3051,17 @@ Slice::Gen::TypesVisitor::visitExceptionEnd(const ExceptionPtr& p)
         _out << nl << "ostr_.startSlice(\"" << scoped << "\", -1, " << (!base ? "true" : "false") << ");";
         for(DataMemberList::const_iterator q = dataMembers.begin(); q != dataMembers.end(); ++q)
         {
+            if(!(*q)->optional())
+            {
+                writeMarshalDataMember(*q, fixId((*q)->name(), DotNet::Exception), ns);
+            }
+        }
+
+        for(DataMemberList::const_iterator q = optionalMembers.begin(); q != optionalMembers.end(); ++q)
+        {
             writeMarshalDataMember(*q, fixId((*q)->name(), DotNet::Exception), ns);
         }
+
         _out << nl << "ostr_.endSlice();";
         if(base)
         {
@@ -3018,6 +3076,14 @@ Slice::Gen::TypesVisitor::visitExceptionEnd(const ExceptionPtr& p)
         _out << nl << "istr_.startSlice();";
 
         for(DataMemberList::const_iterator q = dataMembers.begin(); q != dataMembers.end(); ++q)
+        {
+            if(!(*q)->optional())
+            {
+                writeUnmarshalDataMember(*q, fixId((*q)->name(), DotNet::Exception), ns);
+            }
+        }
+
+        for(DataMemberList::const_iterator q = optionalMembers.begin(); q != optionalMembers.end(); ++q)
         {
             writeUnmarshalDataMember(*q, fixId((*q)->name(), DotNet::Exception), ns);
         }
@@ -3328,6 +3394,7 @@ Slice::Gen::TypesVisitor::visitEnum(const EnumPtr& p)
 
     _out << sp;
     emitDeprecate(p, 0, _out, "type");
+    writeDocComment(p, getDeprecateReason(p, 0, "type"));
     emitAttributes(p);
     emitGeneratedCodeAttribute();
     _out << nl << "public enum " << name;
@@ -3338,6 +3405,7 @@ Slice::Gen::TypesVisitor::visitEnum(const EnumPtr& p)
         {
             _out << ',';
         }
+        writeDocComment(*en, "");
         _out << nl << fixId((*en)->name());
         if(explicitValue)
         {
@@ -4862,7 +4930,15 @@ Slice::Gen::HelperVisitor::visitClassDefStart(const ClassDefPtr& p)
     string scoped = p->scoped();
     ClassList allBases = p->allBases();
     StringList ids;
+#ifdef ICE_CPP11_COMPILER
+    transform(allBases.begin(), allBases.end(), back_inserter(ids),
+              [](const ContainedPtr& it)
+              {
+                  return it->scoped();
+              });
+#else
     transform(allBases.begin(), allBases.end(), back_inserter(ids), ::IceUtil::constMemFun(&Contained::scoped));
+#endif
     StringList other;
     other.push_back(p->scoped());
     other.push_back("::Ice::Object");

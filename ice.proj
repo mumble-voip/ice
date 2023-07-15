@@ -46,11 +46,20 @@
       <Properties>Platform=$(Platform);Configuration=NTS-$(Configuration);BuildWithPHPVersion=7.2</Properties>
     </Projects>
 
+    <Projects Include="$(MSBuildThisFileDirectory)php\msbuild\ice.proj" Condition="'$(DefaultPlatformToolset)' == 'v142'">
+      <Properties>Platform=$(Platform);Configuration=$(Configuration);BuildWithPhpVersion=8.0</Properties>
+    </Projects>
+
+    <Projects Include="$(MSBuildThisFileDirectory)php\msbuild\ice.proj" Condition="'$(DefaultPlatformToolset)' == 'v142'">
+      <Properties>Platform=$(Platform);Configuration=NTS-$(Configuration);BuildWithPHPVersion=8.0</Properties>
+    </Projects>
+
     <Projects Include="$(MSBuildThisFileDirectory)js\msbuild\ice.proj">
       <Properties>Platform=$(Platform);Configuration=$(Configuration)</Properties>
     </Projects>
 
-    <Projects Include="$(MSBuildThisFileDirectory)python\msbuild\ice.proj" Condition="'$(DefaultPlatformToolset)' == 'v140' or '$(DefaultPlatformToolset)' == 'v141'">
+    <Projects Include="$(MSBuildThisFileDirectory)python\msbuild\ice.proj"
+              Condition="'$(DefaultPlatformToolset)' == 'v140' or '$(DefaultPlatformToolset)' == 'v141' or '$(DefaultPlatformToolset)' == 'v142' or '$(DefaultPlatformToolset)' == 'v143'">
       <Properties>Platform=$(Platform);Configuration=$(Configuration)</Properties>
     </Projects>
   </ItemGroup>

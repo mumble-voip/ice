@@ -46,8 +46,7 @@ run(id<ICECommunicator> communicator)
         in = [ICEUtil createInputStream:communicator data:byte];
         @try
         {
-            BOOL v;
-            v = [in readBool];
+            [in readBool];
             test(NO);
         }
         @catch(ICEUnmarshalOutOfBoundsException* ex)
@@ -932,6 +931,7 @@ main(int argc, char* argv[])
 
             ICEInitializationData* initData = [ICEInitializationData initializationData];
             initData.properties = defaultClientProperties(&argc, argv);
+            [initData.properties setProperty:@"Ice.AcceptClassCycles" value:@"1"];
 #if TARGET_OS_IPHONE
             initData.prefixTable_ = [NSDictionary dictionaryWithObjectsAndKeys:
                                       @"TestStream", @"::Test",

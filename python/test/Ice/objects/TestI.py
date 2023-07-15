@@ -126,6 +126,12 @@ class InitialI(Test.Initial):
     def supportsClassGraphDepthMax(self, current):
         return True
 
+    def setCycle(self, r, current):
+        pass
+
+    def acceptsClassCycles(self, current):
+        return True
+
     def getMB(self, current):
         return Test.Initial.GetMBMarshaledResult(self._b1, current)
 
@@ -205,6 +211,9 @@ class InitialI(Test.Initial):
 
     def hasF3(self, current):
         return True
+
+    def opN(self, p1, current):
+        return p1
 
 
 class UnexpectedObjectExceptionTestI(Test.UnexpectedObjectExceptionTest):

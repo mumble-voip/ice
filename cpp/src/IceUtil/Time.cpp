@@ -97,7 +97,7 @@ IceUtil::Time::now(Clock clock)
         struct timeb tb;
         ftime(&tb);
 #  endif
-        return Time(static_cast<Int64>(tb.time) * ICE_INT64(1000000) + tb.millitm * 1000);
+        return Time(static_cast<Int64>(tb.time) * ICE_INT64(1000000) + Int64(tb.millitm) * 1000);
 #else
         struct timeval tv;
         if(gettimeofday(&tv, 0) < 0)
@@ -130,7 +130,7 @@ IceUtil::Time::now(Clock clock)
             struct timeb tb;
             ftime(&tb);
 #  endif
-            return Time(static_cast<Int64>(tb.time) * ICE_INT64(1000000) + tb.millitm * 1000);
+            return Time(static_cast<Int64>(tb.time) * ICE_INT64(1000000) + Int64(tb.millitm) * 1000);
         }
 #elif defined(__hppa)
         //
@@ -246,7 +246,7 @@ IceUtil::Time::toDateTime() const
     os << toString("%x %H:%M:%S") << ".";
     os.fill('0');
     os.width(3);
-    os << static_cast<long>(_usec % 1000000 / 1000);
+    os << static_cast<Int64>(_usec % 1000000 / 1000);
     return os.str();
 }
 
@@ -278,19 +278,17 @@ IceUtil::Time::toDuration() const
 std::string
 IceUtil::Time::toString(const std::string& format) const
 {
-    time_t time = static_cast<long>(_usec / 1000000);
+    time_t time = static_cast<time_t>(_usec / 1000000);
 
-    struct tm* t;
-#ifdef _WIN32
-    t = localtime(&time);
-#else
     struct tm tr;
+#ifdef _MSC_VER
+    localtime_s(&tr, &time);
+#else
     localtime_r(&time, &tr);
-    t = &tr;
 #endif
 
     char buf[32];
-    if(strftime(buf, sizeof(buf), format.c_str(), t) == 0)
+    if(strftime(buf, sizeof(buf), format.c_str(), &tr) == 0)
     {
         return std::string();
     }

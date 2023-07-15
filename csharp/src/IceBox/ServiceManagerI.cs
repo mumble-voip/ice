@@ -290,8 +290,8 @@ class ServiceManagerI : ServiceManagerDisp_
                 if(loadOrder[i].Length > 0)
                 {
                     string key = prefix + loadOrder[i];
-                    string value = services[key];
-                    if(value == null)
+                    string value;
+                    if(!services.TryGetValue(key, out value))
                     {
                         FailureException ex = new FailureException();
                         ex.reason = "ServiceManager: no service definition for `" + loadOrder[i] + "'";
@@ -492,8 +492,10 @@ class ServiceManagerI : ServiceManagerDisp_
                     }
                     catch(Exception)
                     {
-                         throw ex;
-                    }
+#pragma warning disable CA2200 // Rethrow to preserve stack details
+                            throw ex;
+#pragma warning restore CA2200 // Rethrow to preserve stack details
+                        }
                 }
             }
             catch(Exception ex)

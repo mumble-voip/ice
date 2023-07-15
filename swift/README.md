@@ -2,14 +2,16 @@
 This file describes how to build Ice for Swift from source and how to test the
 resulting build.
 
-* [Build Requirements](#build-requirements)
-  * [Operating Systems](#operating-systems)
-  * [Slice to Swift Compiler](#slice-to-swift-compiler)
-  * [Swift Version](#swift-version)
-* [Building Ice for Swift](#building-ice-for-swift)
-* [Running the Swift Test Suite](#running-the-swift-test-suite)
-  * [macOS](#macos)
-  * [iOS](#ios)
+- [Building Ice for Swift](#building-ice-for-swift)
+  - [Swift Build Requirements](#swift-build-requirements)
+    - [Operating Systems](#operating-systems)
+    - [Slice to Swift Compiler](#slice-to-swift-compiler)
+    - [Swift Version](#swift-version)
+    - [Carthage](#carthage)
+  - [Building Ice for Swift](#building-ice-for-swift-1)
+  - [Running the Swift Test Suite](#running-the-swift-test-suite)
+    - [macOS](#macos)
+    - [iOS](#ios)
 
 ## Swift Build Requirements
 
@@ -42,7 +44,7 @@ brew install carthage
 
 First download and build the PromiseKit framework by running:
 ```
-carthage update
+carthage bootstrap --use-xcframeworks
 ```
 from the root directory of your ice repository.
 
@@ -51,6 +53,16 @@ targets.
 
 The test programs for macOS and iOS can be built using `TestDriver macOS` and
 `TestDriver iOS` respectively.
+
+Building the `TestDriver iOS` application to deploy to an iOS device requires
+signing the application with a developer certificate. You need to update the Xcode projects
+to use your Apple development certificates by setting `DEVELOPMENT_TEAM` environment
+variable to the Id of your development team and regenerate the projects with `rake`.
+
+```
+export DEVELOPMENT_TEAM=U4TBVKNQ7F
+rake
+```
 
 ## Running the Swift Test Suite
 
@@ -83,4 +95,4 @@ python allTests.py --config Debug --platform iphonesimulator
 depending on your target.
 
 [1]: https://zeroc.com/downloads/ice
-[2]: https://doc.zeroc.com/ice/3.7/release-notes/supported-platforms-for-ice-3-7-3
+[2]: https://doc.zeroc.com/ice/3.7/release-notes/supported-platforms-for-ice-3-7-9
