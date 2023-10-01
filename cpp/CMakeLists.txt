@@ -40,7 +40,7 @@ find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
 
 if(NOT BUILD_ICE_CPP11)
-	find_package(lmdb CONFIG REQUIRED)
+	find_package(unofficial-lmdb CONFIG REQUIRED)
 endif()
 
 add_subdirectory(src/IceUtil)

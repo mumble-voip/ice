@@ -183,7 +183,6 @@ if(NOT BUILD_ICE_CPP11)
 			${GENERATED_SLICES_DIR}
 			${PROJECT_SOURCE_DIR}/cpp/include
 			${PROJECT_SOURCE_DIR}/cpp/src
-			${LMDB_INCLUDE_DIR}
 	)
 
 	target_compile_definitions(icegridnode
@@ -203,7 +202,8 @@ if(NOT BUILD_ICE_CPP11)
 			icessl
 			icepatch2
 			icedb
-			lmdb
+
+			unofficial::lmdb::lmdb
 	)
 
 	if(UNIX)
@@ -311,7 +311,6 @@ if(NOT BUILD_ICE_CPP11)
 			${GENERATED_SLICES_DIR}
 			${PROJECT_SOURCE_DIR}/cpp/include
 			${PROJECT_SOURCE_DIR}/cpp/src
-			${LMDB_INCLUDE_DIR}
 	)
 
 	target_compile_definitions(icegridregistry
@@ -331,7 +330,8 @@ if(NOT BUILD_ICE_CPP11)
 			icessl
 			icepatch2
 			icedb
-			lmdb
+
+			unofficial::lmdb::lmdb
 	)
 
 	if(UNIX)

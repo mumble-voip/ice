@@ -54,7 +54,6 @@ if(NOT BUILD_ICE_CPP11)
 			${GENERATED_SLICES_DIR}
 			${PROJECT_SOURCE_DIR}/cpp/include
 			${PROJECT_SOURCE_DIR}/cpp/src
-			${LMDB_INCLUDE_DIR}
 	)
 
 	target_compile_definitions(icegriddb
@@ -68,7 +67,8 @@ if(NOT BUILD_ICE_CPP11)
 			ice
 			icedb
 			glacier2
-			lmdb
+
+			unofficial::lmdb::lmdb
 	)
 
 	if(MSVC)

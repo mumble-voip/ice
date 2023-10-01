@@ -155,7 +155,6 @@ target_include_directories(icestormdb
 		${GENERATED_SLICES_DIR}
 		${PROJECT_SOURCE_DIR}/cpp/include
 		${PROJECT_SOURCE_DIR}/cpp/src
-		${LMDB_INCLUDE_DIR}
 )
 
 target_compile_definitions(icestormdb
@@ -259,7 +258,6 @@ target_include_directories(icestormservice
 		${GENERATED_SLICES_DIR}
 		${PROJECT_SOURCE_DIR}/cpp/include
 		${PROJECT_SOURCE_DIR}/cpp/src
-		${LMDB_INCLUDE_DIR}
 )
 
 target_compile_definitions(icestormservice

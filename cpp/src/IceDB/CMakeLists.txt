@@ -12,7 +12,6 @@ if(NOT BUILD_ICE_CPP11)
 			${GENERATED_SLICES_DIR}
 			${PROJECT_SOURCE_DIR}/cpp/include
 			${PROJECT_SOURCE_DIR}/cpp/src
-			${LMDB_INCLUDE_DIR}
 	)
 
 	target_compile_definitions(icedb
@@ -24,7 +23,8 @@ if(NOT BUILD_ICE_CPP11)
 	target_link_libraries(icedb
 		PRIVATE
 			ice
-			lmdb
+		PUBLIC
+			unofficial::lmdb::lmdb
 	)
 
 	if(MSVC)
