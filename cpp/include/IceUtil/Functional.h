@@ -19,13 +19,16 @@ namespace IceUtilInternal
 // ----------------------------------------------------------------------
 
 template<class R, class T, class H>
-class MemFun : public std::unary_function<H, R>
+class MemFun
 {
     typedef R (T::*MemberFN)(void);
     MemberFN _mfn;
 
 public:
-
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef H argument_type;
+    typedef R result_type;
+#endif
     explicit MemFun(MemberFN p) : _mfn(p) { }
     R operator()(H handle) const
     {
@@ -53,13 +56,16 @@ public:
 };
 
 template<class T, class H>
-class VoidMemFun : public std::unary_function<H, void>
+class VoidMemFun
 {
     typedef void (T::*MemberFN)(void);
     MemberFN _mfn;
 
 public:
-
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef H argument_type;
+    typedef void result_type;
+#endif
     explicit VoidMemFun(MemberFN p) : _mfn(p) { }
     void operator()(H handle) const
     {
@@ -87,13 +93,16 @@ public:
 };
 
 template<class R, class K, class T, class H>
-class SecondMemFun : public std::unary_function<std::pair<K, H>, R>
+class SecondMemFun
 {
     typedef R (T::*MemberFN)(void);
     MemberFN _mfn;
 
 public:
-
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef std::pair<K, H> argument_type;
+    typedef R result_type;
+#endif
     explicit SecondMemFun(MemberFN p) : _mfn(p) { }
     R operator()(std::pair<K, H> pair) const
     {
@@ -121,13 +130,16 @@ public:
 };
 
 template<class K, class T, class H>
-class SecondVoidMemFun : public std::unary_function<std::pair<K, H>, void>
+class SecondVoidMemFun
 {
     typedef void (T::*MemberFN)(void);
     MemberFN _mfn;
 
 public:
-
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef std::pair<K, H> argument_type;
+    typedef void result_type;
+#endif
     explicit SecondVoidMemFun(MemberFN p) : _mfn(p) { }
     void operator()(std::pair<K, H> pair) const
     {
@@ -155,13 +167,16 @@ public:
 };
 
 template<class R, class T, class H>
-class ConstMemFun : public std::unary_function<H, R>
+class ConstMemFun
 {
     typedef R (T::*MemberFN)(void) const;
     MemberFN _mfn;
 
 public:
-
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef H argument_type;
+    typedef R result_type;
+#endif
     explicit ConstMemFun(MemberFN p) : _mfn(p) { }
     R operator()(H handle) const
     {
@@ -189,13 +204,16 @@ public:
 };
 
 template<class T, class H>
-class ConstVoidMemFun : public std::unary_function<H, void>
+class ConstVoidMemFun
 {
     typedef void (T::*MemberFN)(void) const;
     MemberFN _mfn;
 
 public:
-
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef H argument_type;
+    typedef void result_type;
+#endif
     explicit ConstVoidMemFun(MemberFN p) : _mfn(p) { }
     void operator()(H handle) const
     {
@@ -223,13 +241,16 @@ public:
 };
 
 template<class R, class K, class T, class H>
-class SecondConstMemFun : public std::unary_function<std::pair<K, H>, R>
+class SecondConstMemFun
 {
     typedef R (T::*MemberFN)(void) const;
     MemberFN _mfn;
 
 public:
-
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef std::pair<K, H> argument_type;
+    typedef R result_type;
+#endif
     explicit SecondConstMemFun(MemberFN p) : _mfn(p) { }
     R operator()(std::pair<K, H> pair) const
     {
@@ -257,13 +278,16 @@ public:
 };
 
 template<class K, class T, class H>
-class SecondConstVoidMemFun : public std::unary_function<std::pair<K, H>, void>
+class SecondConstVoidMemFun
 {
     typedef void (T::*MemberFN)(void) const;
     MemberFN _mfn;
 
 public:
-
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef std::pair<K, H> argument_type;
+    typedef void result_type;
+#endif
     explicit SecondConstVoidMemFun(MemberFN p) : _mfn(p) { }
     void operator()(std::pair<K, H> pair) const
     {

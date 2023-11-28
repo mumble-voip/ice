@@ -21,8 +21,12 @@ using namespace IceGrid;
 namespace IceGrid
 {
 
-    struct AddCommunicator : std::unary_function<CommunicatorDescriptorPtr&, void>
+    struct AddCommunicator
     {
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef CommunicatorDescriptorPtr& argument_type;
+    typedef void result_type;
+#endif
         AddCommunicator(ServerCache& serverCache, const ServerEntryPtr& entry, const string& application) :
             _serverCache(serverCache), _entry(entry), _application(application)
         {
@@ -45,8 +49,12 @@ namespace IceGrid
         const string _application;
     };
 
-    struct RemoveCommunicator : std::unary_function<CommunicatorDescriptorPtr&, void>
+    struct RemoveCommunicator
     {
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef CommunicatorDescriptorPtr& argument_type;
+    typedef void result_type;
+#endif
         RemoveCommunicator(ServerCache& serverCache, const ServerEntryPtr& entry) :
             _serverCache(serverCache), _entry(entry)
         {

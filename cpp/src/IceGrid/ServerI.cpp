@@ -367,9 +367,12 @@ private:
 };
 typedef IceUtil::Handle<ResetPropertiesCB> ResetPropertiesCBPtr;
 
-struct EnvironmentEval : std::unary_function<string, string>
+struct EnvironmentEval
 {
-
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef string argument_type;
+    typedef string result_type;
+#endif
     string
     operator()(const std::string& value)
     {

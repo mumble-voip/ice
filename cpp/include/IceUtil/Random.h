@@ -11,8 +11,6 @@
 #ifdef ICE_CPP11_COMPILER
 #   include <algorithm>
 #   include <random>
-#else
-#   include <functional>
 #endif
 
 namespace IceUtilInternal
@@ -33,8 +31,12 @@ void shuffle(T first, T last)
 
 #else
 
-struct RandomNumberGenerator : public std::unary_function<std::ptrdiff_t, std::ptrdiff_t>
+struct RandomNumberGenerator
 {
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef std::ptrdiff_t argument_type;
+    typedef std::ptrdiff_t result_type;
+#endif
     std::ptrdiff_t operator()(std::ptrdiff_t d)
     {
         return static_cast<std::ptrdiff_t>(IceUtilInternal::random(static_cast<int>(d)));

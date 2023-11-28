@@ -19,8 +19,12 @@ using namespace IceGrid;
 namespace IceGrid
 {
 
-struct ToInternalServerDescriptor : std::unary_function<CommunicatorDescriptorPtr&, void>
+struct ToInternalServerDescriptor
 {
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef CommunicatorDescriptorPtr& argument_type;
+    typedef void result_type;
+#endif
     ToInternalServerDescriptor(const InternalServerDescriptorPtr& descriptor, const InternalNodeInfoPtr& node,
                                int iceVersion) :
         _desc(descriptor),
