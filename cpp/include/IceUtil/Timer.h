@@ -99,14 +99,14 @@ protected:
     bool _destroyed;
     std::set<Token> _tokens;
 
-#if (ICE_CPLUSPLUS >= 201703L)
     class TimerTaskCompare
-#else
-    class TimerTaskCompare : public std::binary_function<TimerTaskPtr, TimerTaskPtr, bool>
-#endif
     {
     public:
-
+#if (ICE_CPLUSPLUS < 201703L)
+        typedef TimerTaskPtr first_argument_type;
+        typedef TimerTaskPtr second_argument_type;
+        typedef bool result_type;
+#endif
         bool operator()(const TimerTaskPtr& lhs, const TimerTaskPtr& rhs) const
         {
             return lhs.get() < rhs.get();

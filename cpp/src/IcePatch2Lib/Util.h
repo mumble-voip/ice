@@ -46,8 +46,13 @@ ICEPATCH2_API void decompressFile(const std::string&);
 
 ICEPATCH2_API void setFileFlags(const std::string&, const IcePatch2::LargeFileInfo&);
 
-struct FileInfoEqual : public std::binary_function<const IcePatch2::LargeFileInfo&, const IcePatch2::LargeFileInfo&, bool>
+struct FileInfoEqual
 {
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef const IcePatch2::LargeFileInfo& first_argument_type;
+    typedef const IcePatch2::LargeFileInfo& second_argument_type;
+    typedef bool result_type;
+#endif
     bool
     operator()(const IcePatch2::LargeFileInfo& lhs, const IcePatch2::LargeFileInfo& rhs)
     {
@@ -78,8 +83,13 @@ struct FileInfoEqual : public std::binary_function<const IcePatch2::LargeFileInf
     }
 };
 
-struct FileInfoWithoutFlagsLess : public std::binary_function<const IcePatch2::LargeFileInfo&, const IcePatch2::LargeFileInfo&, bool>
+struct FileInfoWithoutFlagsLess
 {
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef const IcePatch2::LargeFileInfo& first_argument_type;
+    typedef const IcePatch2::LargeFileInfo& second_argument_type;
+    typedef bool result_type;
+#endif
     bool
     operator()(const IcePatch2::LargeFileInfo& lhs, const IcePatch2::LargeFileInfo& rhs)
     {

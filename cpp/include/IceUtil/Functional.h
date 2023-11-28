@@ -34,13 +34,17 @@ public:
 };
 
 template<class R, class T, class H, class A>
-class MemFun1 : public std::binary_function<H, A, R>
+class MemFun1
 {
     typedef R (T::*MemberFN)(A);
     MemberFN _mfn;
 
 public:
-
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef H first_argument_type;
+    typedef A second_argument_type;
+    typedef R result_type;
+#endif
     explicit MemFun1(MemberFN p) : _mfn(p) { }
     R operator()(H handle, A arg) const
     {
@@ -64,13 +68,17 @@ public:
 };
 
 template<class T, class H, class A>
-class VoidMemFun1 : public std::binary_function<H, A, void>
+class VoidMemFun1
 {
     typedef void (T::*MemberFN)(A);
     MemberFN _mfn;
 
 public:
-
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef H first_argument_type;
+    typedef A second_argument_type;
+    typedef void result_type;
+#endif
     explicit VoidMemFun1(MemberFN p) : _mfn(p) { }
     void operator()(H handle, A arg) const
     {
@@ -94,13 +102,17 @@ public:
 };
 
 template<class R, class K, class T, class H, class A>
-class SecondMemFun1 : public std::binary_function<std::pair<K, H>, A, R>
+class SecondMemFun1
 {
     typedef R (T::*MemberFN)(A);
     MemberFN _mfn;
 
 public:
-
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef std::pair<K, H> first_argument_type;
+    typedef A second_argument_type;
+    typedef R result_type;
+#endif
     explicit SecondMemFun1(MemberFN p) : _mfn(p) { }
     R operator()(std::pair<K, H> pair, A arg) const
     {
@@ -124,13 +136,17 @@ public:
 };
 
 template<class K, class T, class H, class A>
-class SecondVoidMemFun1 : public std::binary_function<std::pair<K, H>, A, void>
+class SecondVoidMemFun1
 {
     typedef void (T::*MemberFN)(A);
     MemberFN _mfn;
 
 public:
-
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef std::pair<K, H> first_argument_type;
+    typedef A second_argument_type;
+    typedef void result_type;
+#endif
     explicit SecondVoidMemFun1(MemberFN p) : _mfn(p) { }
     void operator()(std::pair<K, H> pair, A arg) const
     {
@@ -154,13 +170,17 @@ public:
 };
 
 template<class R, class T, class H, class A>
-class ConstMemFun1 : public std::binary_function<H, A, R>
+class ConstMemFun1
 {
     typedef R (T::*MemberFN)(A) const;
     MemberFN _mfn;
 
 public:
-
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef H first_argument_type;
+    typedef A second_argument_type;
+    typedef R result_type;
+#endif
     explicit ConstMemFun1(MemberFN p) : _mfn(p) { }
     R operator()(H handle, A arg) const
     {
@@ -184,13 +204,17 @@ public:
 };
 
 template<class T, class H, class A>
-class ConstVoidMemFun1 : public std::binary_function<H, A, void>
+class ConstVoidMemFun1
 {
     typedef void (T::*MemberFN)(A) const;
     MemberFN _mfn;
 
 public:
-
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef H first_argument_type;
+    typedef A second_argument_type;
+    typedef void result_type;
+#endif
     explicit ConstVoidMemFun1(MemberFN p) : _mfn(p) { }
     void operator()(H handle, A arg) const
     {
@@ -214,13 +238,17 @@ public:
 };
 
 template<class R, class K, class T, class H, class A>
-class SecondConstMemFun1 : public std::binary_function<std::pair<K, H>, A, R>
+class SecondConstMemFun1
 {
     typedef R (T::*MemberFN)(A) const;
     MemberFN _mfn;
 
 public:
-
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef std::pair<K, H> first_argument_type;
+    typedef A second_argument_type;
+    typedef R result_type;
+#endif
     explicit SecondConstMemFun1(MemberFN p) : _mfn(p) { }
     R operator()(std::pair<K, H> pair, A arg) const
     {
@@ -244,13 +272,17 @@ public:
 };
 
 template<class K, class T, class H, class A>
-class SecondConstVoidMemFun1 : public std::binary_function<std::pair<K, H>, A, void>
+class SecondConstVoidMemFun1
 {
     typedef void (T::*MemberFN)(A) const;
     MemberFN _mfn;
 
 public:
-
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef std::pair<K, H> first_argument_type;
+    typedef A second_argument_type;
+    typedef void result_type;
+#endif
     explicit SecondConstVoidMemFun1(MemberFN p) : _mfn(p) { }
     void operator()(std::pair<K, H> pair, A arg) const
     {

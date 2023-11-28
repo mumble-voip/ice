@@ -50,11 +50,15 @@ bool isLongLineEnd(const string& line)
 
 }
 
-struct ProxyIdentityEqual : public std::binary_function<Ice::ObjectPrx,string,bool>
+struct ProxyIdentityEqual
 {
 
 public:
-
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef Ice::ObjectPrx first_argument_type;
+    typedef string second_argument_type;
+    typedef bool result_type;
+#endif
     ProxyIdentityEqual(const Ice::CommunicatorPtr& communicator) :
         _communicator(communicator)
     {

@@ -76,8 +76,13 @@ isSeqEqual(const Seq& lseq, const Seq& rseq, GetKeyFunc func, EqFunc eq = equal_
     return true;
 }
 
-struct TemplateDescriptorEqual : std::binary_function<TemplateDescriptor&, TemplateDescriptor&, bool>
+struct TemplateDescriptorEqual
 {
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef TemplateDescriptor& first_argument_type;
+    typedef TemplateDescriptor& second_argument_type;
+    typedef bool result_type;
+#endif
     bool
     operator()(const TemplateDescriptor& lhs, const TemplateDescriptor& rhs)
     {
@@ -120,8 +125,13 @@ struct TemplateDescriptorEqual : std::binary_function<TemplateDescriptor&, Templ
     }
 };
 
-struct ObjectDescriptorEq : std::binary_function<const ObjectDescriptor&, const ObjectDescriptor&, bool>
+struct ObjectDescriptorEq
 {
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef ObjectDescriptor& first_argument_type;
+    typedef ObjectDescriptor& second_argument_type;
+    typedef bool result_type;
+#endif
     bool
     operator()(const ObjectDescriptor& lhs, const ObjectDescriptor& rhs)
     {
@@ -141,8 +151,13 @@ struct ObjectDescriptorEq : std::binary_function<const ObjectDescriptor&, const 
     }
 };
 
-struct AdapterEq : std::binary_function<const AdapterDescriptor&, const AdapterDescriptor&, bool>
+struct AdapterEq
 {
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef AdapterDescriptor& first_argument_type;
+    typedef AdapterDescriptor& second_argument_type;
+    typedef bool result_type;
+#endif
     bool
     operator()(const AdapterDescriptor& lhs, const AdapterDescriptor& rhs)
     {
@@ -186,8 +201,13 @@ struct AdapterEq : std::binary_function<const AdapterDescriptor&, const AdapterD
     }
 };
 
-struct ReplicaGroupEq : std::binary_function<const ReplicaGroupDescriptor&, const ReplicaGroupDescriptor&, bool>
+struct ReplicaGroupEq
 {
+#if (ICE_CPLUSPLUS < 201703L)
+    typedef ReplicaGroupDescriptor& first_argument_type;
+    typedef ReplicaGroupDescriptor& second_argument_type;
+    typedef bool result_type;
+#endif
     bool
     operator()(const ReplicaGroupDescriptor& lhs, const ReplicaGroupDescriptor& rhs)
     {
