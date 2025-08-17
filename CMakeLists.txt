@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.7.2)
 
-option(BUILD_ICE_TESTS OFF)
-option(BUILD_ICE_CXX OFF)
+option(BUILD_ICE_TESTS "" OFF)
+option(BUILD_ICE_CXX "" ON)
 
 # handle debug lib naming based on shipped project naming
 if(NOT CMAKE_DEBUG_POSTFIX)
