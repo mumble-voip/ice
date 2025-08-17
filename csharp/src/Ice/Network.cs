@@ -237,13 +237,6 @@ namespace IceInternal
                 {
                     setTcpNoDelay(socket);
                     socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, 1);
-                    //
-                    // FIX: the fast path loopback appears to cause issues with
-                    // connection closure when it's enabled. Sometime, a peer
-                    // doesn't receive the TCP/IP connection closure (RST) from
-                    // the other peer and it ends up hanging. See bug #6093.
-                    //
-                    //setTcpLoopbackFastPath(socket);
                 }
                 catch(SocketException ex)
                 {
@@ -317,26 +310,6 @@ namespace IceInternal
                 throw new Ice.SocketException(ex);
             }
         }
-
-        //
-        // FIX: the fast path loopback appears to cause issues with
-        // connection closure when it's enabled. Sometime, a peer
-        // doesn't receive the TCP/IP connection closure (RST) from
-        // the other peer and it ends up hanging. See bug #6093.
-        //
-        // public static void setTcpLoopbackFastPath(Socket socket)
-        // {
-        //     const int SIO_LOOPBACK_FAST_PATH = (-1744830448);
-        //     byte[] OptionInValue = BitConverter.GetBytes(1);
-        //     try
-        //     {
-        //         socket.IOControl(SIO_LOOPBACK_FAST_PATH, OptionInValue, null);
-        //     }
-        //     catch(Exception)
-        //     {
-        //         // Expected on platforms that do not support TCP Loopback Fast Path
-        //     }
-        // }
 
         public static void setBlock(Socket socket, bool block)
         {
@@ -524,42 +497,10 @@ namespace IceInternal
             }
         }
 
-#if NETSTANDARD2_0
-        [DllImport("libc", SetLastError = true)]
-        private static extern int setsockopt(int socket, int level, int name, ref int value, uint len);
-
-        private const int SOL_SOCKET_MACOS= 0xffff;
-        private const int SO_REUSEADDR_MACOS = 0x0004;
-        private const int SOL_SOCKET_LINUX = 0x0001;
-        private const int SO_REUSEADDR_LINUX = 0x0002;
-#endif
-
         public static IPEndPoint doBind(Socket socket, EndPoint addr)
         {
             try
             {
-#if NETSTANDARD2_0
-                //
-                // TODO: Workaround .NET Core 2.0 bug where SO_REUSEADDR isn't set on sockets which are bound. This
-                // fix is included in the Bind() implementation of .NET Core 2.1. This workaround should be removed
-                // once we no longer support .NET Core 2.0.
-                //
-                int value = 1;
-                int err = 0;
-                var fd = socket.Handle.ToInt32();
-                if(AssemblyUtil.isLinux)
-                {
-                    err = setsockopt(fd, SOL_SOCKET_LINUX, SO_REUSEADDR_LINUX, ref value, sizeof(int));
-                }
-                else if(AssemblyUtil.isMacOS)
-                {
-                    err = setsockopt(fd, SOL_SOCKET_MACOS, SO_REUSEADDR_MACOS, ref value, sizeof(int));
-                }
-                if(err != 0)
-                {
-                    throw new SocketException(err);
-                }
-#endif
                 socket.Bind(addr);
                 return (IPEndPoint)socket.LocalEndPoint;
             }

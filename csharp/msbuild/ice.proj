@@ -12,7 +12,15 @@
         <DefaultPlatformToolset Condition="'$(VisualStudioVersion)' == '12.0'">v120</DefaultPlatformToolset>
         <DefaultPlatformToolset Condition="'$(VisualStudioVersion)' == '14.0'">v140</DefaultPlatformToolset>
         <DefaultPlatformToolset Condition="'$(VisualStudioVersion)' == '15.0'">v141</DefaultPlatformToolset>
-        <DefaultPlatformToolset Condition="'$(VisualStudioVersion)' == '16.0'">v141</DefaultPlatformToolset>
+        <DefaultPlatformToolset Condition="'$(VisualStudioVersion)' == '16.0'">v142</DefaultPlatformToolset>
+        <DefaultPlatformToolset Condition="'$(VisualStudioVersion)' == '17.0'">v143</DefaultPlatformToolset>
+
+        <NetStandardTargets>false</NetStandardTargets>
+    </PropertyGroup>
+
+    <!-- Our .NET Standard build on Windows requires Visual Studio 2022 -->
+    <PropertyGroup Condition="'$(VisualStudioVersion)' == '17.0' or '$(OS)' != 'Windows_NT'">
+        <NetStandardTargets>true</NetStandardTargets>
     </PropertyGroup>
 
     <Import Project="$(MSBuildThisFileDirectory)\..\..\config\icebuilder.props" />
@@ -22,20 +30,6 @@
     <Target Name="RemovePackages">
       <Exec Command="rmdir /s /q $(MSBuildThisFileDirectory)packages" Condition="Exists('$(MSBuildThisFileDirectory)packages')" />
     </Target>
-
-    <!-- NET Standard on Windows requires Visual Studio 2017 or Visual Studio 2019 -->
-    <Choose>
-        <When Condition="'$(VisualStudioVersion)' == '15.0' or '$(VisualStudioVersion)' == '16.0' or '$(OS)' != 'Windows_NT'">
-            <PropertyGroup>
-                <NetStandardTargets>true</NetStandardTargets>
-            </PropertyGroup>
-        </When>
-        <Otherwise>
-            <PropertyGroup>
-                <NetStandardTargets>false</NetStandardTargets>
-            </PropertyGroup>
-        </Otherwise>
-    </Choose>
 
     <!-- Targets required to build Slice compilers -->
     <Choose>
@@ -226,17 +220,17 @@
     <Target Name="WindowsNuGetPack" DependsOnTargets="BuildDist" Condition="'$(OS)' == 'Windows_NT'">
         <RemoveDir Directories="zeroc.ice.net" />
 
-        <!-- Build iceboxnet with netcoreapp2.1 target framework (default) -->
+        <!-- Build iceboxnet with net6.0 target framework (default) -->
         <MSBuild Projects="$(MSBuildThisFileDirectory)..\src\IceBox\msbuild\icebox\netstandard2.0\icebox.csproj"
-                 Properties="Configuration=$(Configuration);Platform=Any CPU;AppTargetFramework=netcoreapp2.1;BaseIntermediateOutputPath=obj\netcoreapp2.1\"
+                 Properties="Configuration=$(Configuration);Platform=Any CPU;AppTargetFramework=net6.0;BaseIntermediateOutputPath=obj\net6.0\"
                  Targets="Restore;Publish"
                  Condition="'$(NetStandardTargets)' == 'true'"/>
 
-        <!-- Build iceboxnet with netcoreapp3.1 target framework -->
+        <!-- Build iceboxnet with net7.0 target framework -->
         <MSBuild Projects="$(MSBuildThisFileDirectory)..\src\IceBox\msbuild\icebox\netstandard2.0\icebox.csproj"
-                 Properties="Configuration=$(Configuration);Platform=Any CPU;AppTargetFramework=netcoreapp3.1;BaseIntermediateOutputPath=obj\netcoreapp3.1\"
+                 Properties="Configuration=$(Configuration);Platform=Any CPU;AppTargetFramework=net7.0;BaseIntermediateOutputPath=obj\net7.0\"
                  Targets="Restore;Publish"
-                 Condition="'$(NetStandardTargets)' == 'true' and '$(VisualStudioVersion)' == '16.0'"/>
+                 Condition="'$(NetStandardTargets)' == 'true'"/>
 
         <MSBuild Projects="ice.nuget.targets"
                  Properties="PackageDirectory=zeroc.ice.net;NetStandardTargets=$(NetStandardTargets);
@@ -253,6 +247,12 @@
 
         <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\LICENSE"
               DestinationFiles="zeroc.ice.net\LICENSE.txt" />
+
+        <Copy SourceFiles="$(MSBuildThisFileDirectory)..\README.md"
+              DestinationFiles="zeroc.ice.net\README.md" />
+
+        <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\logo.png"
+              DestinationFiles="zeroc.ice.net\logo.png" />
 
         <!-- Generate iceboxnet.exe.config with the correct assembly pulbic key token and assembly paths -->
         <GetPublicKeyToken AssemblyFile="$(MSBuildThisFileDirectory)..\lib\net45\Ice.dll">
@@ -272,17 +272,17 @@
         <!-- Copy bzip2 native dll next to iceboxnet assemblies -->
         <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\cpp\msbuild\packages\bzip2.v140.1.0.6.10\build\native\bin\x64\MT-Release\bzip2.dll;
                            $(MSBuildThisFileDirectory)..\..\cpp\msbuild\packages\bzip2.v140.1.0.6.10\build\native\bin\x64\MT-Release\bzip2.pdb"
-              DestinationFolder="$(MSBuildThisFileDirectory)zeroc.ice.net\tools\net45"/>
-
-        <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\cpp\msbuild\packages\bzip2.v140.1.0.6.10\build\native\bin\x64\MT-Release\bzip2.dll;
-                           $(MSBuildThisFileDirectory)..\..\cpp\msbuild\packages\bzip2.v140.1.0.6.10\build\native\bin\x64\MT-Release\bzip2.pdb"
-              DestinationFolder="$(MSBuildThisFileDirectory)zeroc.ice.net\tools\netcoreapp2.1"
+              DestinationFolder="$(MSBuildThisFileDirectory)zeroc.ice.net\tools\net6.0"
               Condition="'$(NetStandardTargets)' == 'true'"/>
 
         <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\cpp\msbuild\packages\bzip2.v140.1.0.6.10\build\native\bin\x64\MT-Release\bzip2.dll;
                            $(MSBuildThisFileDirectory)..\..\cpp\msbuild\packages\bzip2.v140.1.0.6.10\build\native\bin\x64\MT-Release\bzip2.pdb"
-              DestinationFolder="$(MSBuildThisFileDirectory)zeroc.ice.net\tools\netcoreapp3.1"
-              Condition="'$(NetStandardTargets)' == 'true' and '$(VisualStudioVersion)' == '16.0'"/>
+              DestinationFolder="$(MSBuildThisFileDirectory)zeroc.ice.net\tools\net7.0"
+              Condition="'$(NetStandardTargets)' == 'true'"/>
+
+        <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\cpp\msbuild\packages\bzip2.v140.1.0.6.10\build\native\bin\x64\MT-Release\bzip2.dll;
+                           $(MSBuildThisFileDirectory)..\..\cpp\msbuild\packages\bzip2.v140.1.0.6.10\build\native\bin\x64\MT-Release\bzip2.pdb"
+              DestinationFolder="$(MSBuildThisFileDirectory)zeroc.ice.net\tools\net45"/>
 
         <Copy SourceFiles="zeroc.ice.net.props"
               DestinationFiles="zeroc.ice.net\build\zeroc.ice.net.props"/>
@@ -293,7 +293,6 @@
 
     <Target Name="UnixNuGetPack" DependsOnTargets="BuildDist" Condition="'$(OS)' != 'Windows_NT'">
         <RemoveDir Directories="zeroc.ice.net" />
-
         <MSBuild Projects="$(MSBuildThisFileDirectory)..\src\IceBox\msbuild\icebox\netstandard2.0\icebox.csproj"
                  Properties="Configuration=$(Configuration);Platform=Any CPU"
                  Targets="Publish"/>
@@ -305,42 +304,4 @@
     <Target Name="NuGetPack"
             DependsOnTargets="WindowsNuGetPack;UnixNuGetPack">
     </Target>
-
-    <!-- UWP Xamarin Builds -->
-    <Target Name="UWPXamarinBuild" DependsOnTargets="NetStandardBuildDist" Condition="'$(OS)' == 'Windows_NT'">
-        <Exec Command="$(NuGetExe) restore $(MSBuildThisFileDirectory)ice.xamarin.test.sln" />
-        <MSBuild Projects="$(MSBuildThisFileDirectory)..\test\xamarin\controller.UWP\controller.UWP.csproj"
-                 Properties="Configuration=$(Configuration);Platform=$(UWPPlatform)"/>
-    </Target>
-
-    <!-- Android Xamarin Builds -->
-    <Target Name="AndroidXamarinBuildOnWindows" DependsOnTargets="NetStandardBuildDist" Condition="'$(OS)' == 'Windows_NT'">
-        <Exec Command="$(NuGetExe) restore $(MSBuildThisFileDirectory)ice.xamarin.test.sln" />
-        <MSBuild Projects="$(MSBuildThisFileDirectory)..\test\xamarin\controller.Android\controller.Android.csproj"
-                 Properties="Configuration=$(Configuration);Platform=AnyCPU"
-                 Targets="SignAndroidPackage"/>
-    </Target>
-
-    <Target Name="AndroidXamarinBuildOnMac" DependsOnTargets="" Condition="'$(OS)' == 'Unix'">
-        <!-- We use exec to build the distribution instead of adding it to the DependsOnTargets as we have to use
-             "dotnet msbuid" to build the distribution and "msbuild" from Visual Studio to build the test controller -->
-        <Exec Command="dotnet msbuild $(MSBuildThisFileDirectory)ice.proj /t:BuildDist" />
-        <Exec Command="nuget restore $(MSBuildThisFileDirectory)ice.xamarin.test.sln" />
-        <MSBuild Projects="$(MSBuildThisFileDirectory)..\test\xamarin\controller.Android\controller.Android.csproj"
-                 Properties="Configuration=$(Configuration);Platform=AnyCPU"
-                 Targets="SignAndroidPackage"/>
-    </Target>
-
-    <Target Name="AndroidXamarinBuild" DependsOnTargets="AndroidXamarinBuildOnWindows;AndroidXamarinBuildOnMac"/>
-
-    <!-- iOS Xamarin Builds -->
-    <Target Name="iOSXamarinBuild" Condition="'$(OS)' == 'Unix'">
-        <!-- We use exec to build the distribution instead of adding it to the DependsOnTargets as we have to use
-             "dotnet msbuid" to build the distribution and "msbuild" from Visual Studio to build the test controller -->
-        <Exec Command="dotnet msbuild $(MSBuildThisFileDirectory)ice.proj /t:BuildDist" />
-        <Exec Command="nuget restore $(MSBuildThisFileDirectory)ice.xamarin.test.sln" />
-        <MSBuild Projects="$(MSBuildThisFileDirectory)..\test\xamarin\controller.iOS\controller.iOS.csproj"
-                 Properties="Configuration=$(Configuration)"/>
-    </Target>
-
 </Project>

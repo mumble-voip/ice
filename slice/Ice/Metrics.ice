@@ -11,6 +11,7 @@
 [["ice-prefix"]]
 
 [["js:module:ice"]]
+[["js:cjs-module"]]
 
 [["objc:dll-export:ICE_API"]]
 [["objc:header-dir:objc"]]
@@ -36,7 +37,7 @@ module IceMX
 
 /**
  *
- * A dictionnary of strings to integers.
+ * A dictionary of strings to integers.
  *
  **/
 dictionary<string, int> StringIntDict;
@@ -198,7 +199,7 @@ interface MetricsAdmin
     /**
      *
      * Get the metrics objects for the given metrics view. This
-     * returns a dictionnary of metric maps for each metrics class
+     * returns a dictionary of metric maps for each metrics class
      * configured with the view. The timestamp allows the client to
      * compute averages which are not dependent of the invocation
      * latency for this operation.

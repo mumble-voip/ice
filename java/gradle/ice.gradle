@@ -67,7 +67,12 @@ if(!(project.hasProperty('android') && project.android.sourceSets)) {
         task compileModuleInfoJava(type: JavaCompile) {
             classpath = files() // empty
             source = 'src/main/java/module-info.java'
-            destinationDir = compileJava.destinationDir // same dir to see classes compiled by compileJava
+            // same dir to see classes compiled by compileJava
+            if (GradleVersion.current() >= GradleVersion.version('8.0')) {
+                destinationDirectory = compileJava.destinationDirectory
+            } else {
+                destinationDir = compileJava.destinationDir
+            }
             doFirst {
                 options.compilerArgs = [
                     '--release', '9',
@@ -146,11 +151,11 @@ ext.searchFile = { List<Closure> places, List<String> searchPaths ->
 }
 
 // Used for the tests
-//
 ext.localDependency = { artifactId ->
-    if(project.slice.srcDist || System.env.ICE_BIN_DIST == "cpp") {
-        return project(":${artifactId}")
-    } else {
+    def useBinDist = System.env.ICE_BIN_DIST?.split(" ").find{ it == 'all' || it.contains('java')}
+    if(useBinDist) {
         return "com.zeroc:${artifactId}:${project.version}"
+    } else {
+        return project(":${artifactId}")
     }
 }

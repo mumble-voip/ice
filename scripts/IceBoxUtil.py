@@ -16,12 +16,11 @@ class IceBox(ProcessFromBinDir, Server):
         mapping = self.getMapping(current)
 
         #
-        # If running IceBox tests with .NET Core we need to generate a config
-        # file that use the service for the .NET Framework used to build the
-        # tests
+        # If running IceBox tests with non default framework we need to generate a custom config
+        # file.
         #
         if self.configFile:
-            if isinstance(mapping, CSharpMapping) and (current.config.dotnetcore or current.config.framework):
+            if isinstance(mapping, CSharpMapping) and current.config.dotnet:
                 configFile = self.configFile.format(testdir=current.testsuite.getPath())
                 with open(configFile, 'r') as source:
                     framework = mapping.getTargetFramework(current)
@@ -29,7 +28,10 @@ class IceBox(ProcessFromBinDir, Server):
                     newConfigFile = "{}.{}".format(configFile, framework)
                     with open(newConfigFile, 'w') as target:
                         for line in source.readlines():
-                            target.write(line.replace("\\net45\\", "\\netstandard2.0\\{0}\\".format(libframework)))
+                            line = line.replace("\\net45\\", "\\netstandard2.0\\{0}\\".format(libframework))
+                            if "\\" != os.sep:
+                                line = line.replace("\\", os.sep)
+                            target.write(line)
                         current.files.append(newConfigFile)
 
     def getExe(self, current):
@@ -57,7 +59,7 @@ class IceBox(ProcessFromBinDir, Server):
         args = Server.getEffectiveArgs(self, current, args)
         if self.configFile:
             mapping = self.getMapping(current)
-            if isinstance(mapping, CSharpMapping) and (current.config.dotnetcore or current.config.framework):
+            if isinstance(mapping, CSharpMapping) and current.config.dotnet:
                 args.append("--Ice.Config={0}.{1}".format(self.configFile, mapping.getTargetFramework(current)))
             else:
                 args.append("--Ice.Config={0}".format(self.configFile))

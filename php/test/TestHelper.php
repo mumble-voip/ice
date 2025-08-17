@@ -17,6 +17,8 @@ require_once('Ice.php');
 
 class TestHelper
 {
+    private $_communicator;
+
     public function __construct()
     {
         $this->_communicator = NULL;
@@ -205,6 +207,7 @@ class TestHelper
         }
         catch(Exception $ex)
         {
+            echo $ex->getMessage();
             echo $ex->getTraceAsString();
             exit(1);
         }

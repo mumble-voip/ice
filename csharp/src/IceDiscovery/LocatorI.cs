@@ -22,7 +22,7 @@ namespace IceDiscovery
             {
                 if(proxy != null)
                 {
-                    _adapters.Add(adapterId, proxy);
+                    _adapters[adapterId] = proxy;
                 }
                 else
                 {
@@ -40,7 +40,7 @@ namespace IceDiscovery
             {
                 if(proxy != null)
                 {
-                    _adapters.Add(adapterId, proxy);
+                    _adapters[adapterId] = proxy;
                     HashSet<string> adapterIds;
                     if(!_replicaGroups.TryGetValue(replicaGroupId, out adapterIds))
                     {
@@ -114,7 +114,7 @@ namespace IceDiscovery
                 {
                     return null;
                 }
-                //adapterIds.Suffle();
+                IceUtilInternal.Collections.Shuffle(ref adapterIds);
                 return prx.ice_adapterId(adapterIds[0]);
             }
         }

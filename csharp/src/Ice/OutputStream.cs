@@ -727,7 +727,9 @@ namespace Ice
             {
                 IceInternal.OutputStreamWrapper w = new IceInternal.OutputStreamWrapper(this);
                 IFormatter f = new BinaryFormatter();
+#pragma warning disable SYSLIB0011 // Type or member is obsolete
                 f.Serialize(w, o);
+#pragma warning restore SYSLIB0011 // Type or member is obsolete
                 w.Close();
             }
             catch(System.Exception ex)
@@ -2787,7 +2789,7 @@ namespace Ice
 
             if(_encapsStack.format == FormatType.DefaultFormat)
             {
-                _encapsStack.format = _instance.defaultsAndOverrides().defaultFormat;
+                _encapsStack.format = _format;
             }
 
             if(_encapsStack.encoder == null) // Lazy initialization.

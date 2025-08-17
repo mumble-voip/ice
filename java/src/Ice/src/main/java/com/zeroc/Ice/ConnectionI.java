@@ -871,12 +871,12 @@ public final class ConnectionI extends com.zeroc.IceInternal.EventHandler
     }
 
     @Override
-    public synchronized void setAdapter(ObjectAdapter adapter)
+    public void setAdapter(ObjectAdapter adapter)
     {
         if(adapter != null)
         {
-            // Go through the adapter to set the adapter and servant manager on this connection
-            // to ensure the object adapter is still active.
+            // Go through the adapter to set the adapter on this connection to ensure the
+            // object adapter is still active and to ensure proper locking order.
             ((ObjectAdapterI)adapter).setAdapterOnConnection(this);
         }
         else
@@ -1374,6 +1374,21 @@ public final class ConnectionI extends com.zeroc.IceInternal.EventHandler
         {
             assert (_state == StateClosed);
             unscheduleTimeout(SocketOperation.Read | SocketOperation.Write);
+        }
+
+        if(_instance.queueRequests())
+        {
+            _instance.getQueueExecutor().executeNoThrow(new Callable<Void>()
+            {
+                @Override
+                public Void call()
+                    throws Exception
+                {
+                    finish(close);
+                    return null;
+                }
+            });
+            return;
         }
 
         //

@@ -832,12 +832,12 @@ namespace Ice
             // top-level sequence or enclosed sequence it doesn't really matter).
             //
             // Otherwise, we are reading an enclosed sequence and we have to bump
-            // _minSeqSize by the minimum size that this sequence will  require on
+            // _minSeqSize by the minimum size that this sequence will require on
             // the stream.
             //
             // The goal of this check is to ensure that when we start un-marshalling
             // a new sequence, we check the minimal size of this new sequence against
-            // the estimated remaining buffer size. This estimatation is based on
+            // the estimated remaining buffer size. This estimation is based on
             // the minimum size of the enclosing sequences, it's _minSeqSize.
             //
             if(_startSeq == -1 || _buf.b.position() > (_startSeq + _minSeqSize))
@@ -1097,7 +1097,9 @@ namespace Ice
             try
             {
                 var f = new BinaryFormatter(null, new StreamingContext(StreamingContextStates.All, _instance));
+#pragma warning disable SYSLIB0011 // Type or member is obsolete
                 return f.Deserialize(new IceInternal.InputStreamWrapper(sz, this));
+#pragma warning restore SYSLIB0011 // Type or member is obsolete
             }
             catch(System.Exception ex)
             {
@@ -2454,16 +2456,24 @@ namespace Ice
         /// corresponding instance has been fully unmarshaled.</param>
         public void readValue<T>(System.Action<T> cb) where T : Value
         {
-            readValue(v => {
-                if(v == null || v is T)
-                {
-                    cb((T)v);
-                }
-                else
-                {
-                    IceInternal.Ex.throwUOE(typeof(T), v);
-                }
-            });
+            initEncaps();
+            if (cb == null)
+            {
+                _encapsStack.decoder.readValue(null);
+            }
+            else
+            {
+                _encapsStack.decoder.readValue(v => {
+                    if (v == null || v is T)
+                    {
+                        cb((T)v);
+                    }
+                    else
+                    {
+                        IceInternal.Ex.throwUOE(typeof(T), v);
+                    }
+                });
+            }
         }
 
         /// <summary>
@@ -2474,8 +2484,7 @@ namespace Ice
         /// corresponding instance has been fully unmarshaled.</param>
         public void readValue(System.Action<Value> cb)
         {
-            initEncaps();
-            _encapsStack.decoder.readValue(cb);
+            readValue<Value>(cb);
         }
 
         /// <summary>

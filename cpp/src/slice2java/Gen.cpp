@@ -1145,7 +1145,15 @@ Slice::JavaVisitor::writeDispatch(Output& out, const ClassDefPtr& p)
 
     ClassList allBases = p->allBases();
     StringList ids;
+#ifdef ICE_CPP11_COMPILER
+    transform(allBases.begin(), allBases.end(), back_inserter(ids),
+              [](const ContainedPtr& it)
+              {
+                  return it->scoped();
+              });
+#else
     transform(allBases.begin(), allBases.end(), back_inserter(ids), constMemFun(&Contained::scoped));
+#endif
     StringList other;
     other.push_back(scoped);
     other.push_back("::Ice::Object");
@@ -1388,7 +1396,15 @@ Slice::JavaVisitor::writeDispatch(Output& out, const ClassDefPtr& p)
     if(!allOps.empty())
     {
         StringList allOpNames;
+#ifdef ICE_CPP11_COMPILER
+        transform(allOps.begin(), allOps.end(), back_inserter(allOpNames),
+                  [](const ContainedPtr& it)
+                  {
+                      return it->name();
+                  });
+#else
         transform(allOps.begin(), allOps.end(), back_inserter(allOpNames), constMemFun(&Contained::name));
+#endif
         allOpNames.push_back("ice_id");
         allOpNames.push_back("ice_ids");
         allOpNames.push_back("ice_isA");
@@ -2536,9 +2552,9 @@ Slice::Gen::TypesVisitor::visitClassDefStart(const ClassDefPtr& p)
         out << eb;
 
         //
-        // A method cannot have more than 255 parameters (including the implicit "this" argument).
+        // Generate constructor if the parameter list is not too large.
         //
-        if(allDataMembers.size() < 255)
+        if(isValidMethodParameterList(allDataMembers))
         {
             DataMemberList baseDataMembers;
             if(baseClass)
@@ -2929,9 +2945,9 @@ Slice::Gen::TypesVisitor::visitExceptionStart(const ExceptionPtr& p)
         }
 
         //
-        // A method cannot have more than 255 parameters (including the implicit "this" argument).
+        // Generate constructor if the parameter list is not too large.
         //
-        if(allDataMembers.size() < 255)
+        if(isValidMethodParameterList(allDataMembers))
         {
             if(hasRequiredMembers && hasOptionalMembers)
             {
@@ -2994,8 +3010,9 @@ Slice::Gen::TypesVisitor::visitExceptionStart(const ExceptionPtr& p)
 
                 //
                 // Create constructor that takes all data members plus a Throwable.
+                // Do this only when the parameter list is not too large.
                 //
-                if(allDataMembers.size() < 254)
+                if(isValidMethodParameterList(allDataMembers, 1))
                 {
                     const string causeParamName = getEscapedParamName(allDataMembers, "cause");
 
@@ -3074,9 +3091,10 @@ Slice::Gen::TypesVisitor::visitExceptionStart(const ExceptionPtr& p)
             out << eb;
 
             //
-            // Create constructor that takes all data members plus a Throwable
+            // Create constructor that takes all data members plus a Throwable.
+            // Do this only when the parameter list is not too large.
             //
-            if(allDataMembers.size() < 254)
+            if(isValidMethodParameterList(allDataMembers, 1))
             {
                 const string causeParamName = getEscapedParamName(allDataMembers, "cause");
 
@@ -3366,9 +3384,9 @@ Slice::Gen::TypesVisitor::visitStructEnd(const StructPtr& p)
     out << eb;
 
     //
-    // A method cannot have more than 255 parameters (including the implicit "this" argument).
+    // Generate constructor if the parameter list is not too large.
     //
-    if(members.size() < 255)
+    if(isValidMethodParameterList(members))
     {
         vector<string> paramDecl;
         vector<string> paramNames;
@@ -4312,7 +4330,6 @@ Slice::Gen::HelperVisitor::visitSequence(const SequencePtr& p)
         //
         // Determine sequence depth.
         //
-        int depth = 0;
         TypePtr origContent = p->type();
         SequencePtr s = SequencePtr::dynamicCast(origContent);
         while(s)
@@ -4324,7 +4341,6 @@ Slice::Gen::HelperVisitor::visitSequence(const SequencePtr& p)
             {
                 break;
             }
-            depth++;
             origContent = s->type();
             s = SequencePtr::dynamicCast(origContent);
         }

@@ -3,20 +3,18 @@
 //
 
 const Ice = require("../Ice/ModuleRegistry").Ice;
-Ice._ModuleRegistry.require(module,
-    [
-        "../Ice/Debug",
-        "../Ice/ObjectPrx",
-        "../Ice/StringUtil",
-        "../Ice/Identity",
-        "../Ice/Reference",
-        "../Ice/LocalException"
-    ]);
+
+require("../Ice/Debug");
+require("../Ice/Identity");
+require("../Ice/LocalException");
+require("../Ice/ObjectPrx");
+require("../Ice/Reference");
+require("../Ice/StringUtil");
 
 const Debug = Ice.Debug;
+const Identity = Ice.Identity;
 const ObjectPrx = Ice.ObjectPrx;
 const StringUtil = Ice.StringUtil;
-const Identity = Ice.Identity;
 
 //
 // Only for use by Instance.
@@ -197,7 +195,7 @@ class ProxyFactory
         // in this process that will not change if we try again.
         //
         // The most likely cause for a MarshalException is exceeding the
-        // maximum message size, which is represented by the the subclass
+        // maximum message size, which is represented by the subclass
         // MemoryLimitException. For example, a client can attempt to send
         // a message that exceeds the maximum memory size, or accumulate
         // enough batch requests without flushing that the maximum size is

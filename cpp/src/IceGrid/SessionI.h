@@ -73,6 +73,8 @@ public:
 
     Ice::ObjectPrx _register(const SessionServantManagerPtr&, const Ice::ConnectionPtr&);
 
+    virtual void ice_ping(const Ice::Current&) const;
+
     virtual void keepAlive(const Ice::Current& current) { BaseSessionI::keepAlive(current); }
 
     virtual void allocateObjectById_async(const AMD_Session_allocateObjectByIdPtr&, const Ice::Identity&,
@@ -140,7 +142,7 @@ class ClientSSLSessionManagerI : public virtual Glacier2::SSLSessionManager
 {
 public:
 
-    ClientSSLSessionManagerI(const  ClientSessionFactoryPtr&);
+    ClientSSLSessionManagerI(const ClientSessionFactoryPtr&);
 
     virtual Glacier2::SessionPrx create(const Glacier2::SSLInfo&, const Glacier2::SessionControlPrx&,
                                         const Ice::Current&);

@@ -72,7 +72,7 @@ dictionary<int, string> IntStringDict;
 class MultiOptional
 {
     optional(1) byte a;
-    optional(2) bool  b;
+    optional(2) bool b;
     optional(3) short c;
     optional(4) int d;
     optional(5) long e;
@@ -144,8 +144,10 @@ exception OptionalException
 
 exception DerivedException extends OptionalException
 {
+    string d1;
     optional(600) string ss = "test";
     optional(601) OneOptional o2;
+    string d2;
 }
 
 exception RequiredException extends OptionalException

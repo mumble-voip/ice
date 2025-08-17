@@ -34,7 +34,7 @@ namespace Ice
                                                     Ice.Optional<Test.OneOptional> o,
                                                     Ice.Current current)
             {
-                throw new Test.DerivedException(false, a, b, o, b, o);
+                throw new Test.DerivedException(false, a, b, o, "d1", b, o, "d2");
             }
 
             public override void opRequiredException(Ice.Optional<int> a,
@@ -401,7 +401,11 @@ namespace Ice
 
             public override bool supportsCsharpSerializable(Ice.Current current)
             {
+                #if NET8_0_OR_GREATER
+                return false;
+                #else
                 return true;
+                #endif
             }
 
             public override bool supportsCppStringView(Ice.Current current)

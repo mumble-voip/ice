@@ -31,6 +31,7 @@
 #if defined(__clang__)
 #   pragma clang diagnostic ignored "-Wconversion"
 #   pragma clang diagnostic ignored "-Wsign-conversion"
+#   pragma clang diagnostic ignored "-Wunused-but-set-variable"
 #endif
 
 using namespace std;
@@ -1480,7 +1481,7 @@ interface_exports
     ContainedPtr contained = ContainedPtr::dynamicCast($2);
     if(contained && !metaData->v.empty())
     {
-    contained->setMetaData(metaData->v);
+        contained->setMetaData(metaData->v);
     }
 }
 | error ';' interface_exports

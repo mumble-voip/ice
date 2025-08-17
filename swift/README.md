@@ -1,86 +1,80 @@
-# Building Ice for Swift
-This file describes how to build Ice for Swift from source and how to test the
-resulting build.
+# Ice For Swift
 
-* [Build Requirements](#build-requirements)
-  * [Operating Systems](#operating-systems)
-  * [Slice to Swift Compiler](#slice-to-swift-compiler)
-  * [Swift Version](#swift-version)
-* [Building Ice for Swift](#building-ice-for-swift)
-* [Running the Swift Test Suite](#running-the-swift-test-suite)
-  * [macOS](#macos)
-  * [iOS](#ios)
+[Getting started] | [Examples] | [NuGet package] | [Documentation] | [Building from source]
 
-## Swift Build Requirements
+The [Ice framework] provides everything you need to build networked applications, including RPC, pub/sub, server deployment, and more.
 
-### Operating Systems
+Ice for Swift is the swift implementation of the Ice framework.
 
-Ice for Swift builds and runs on macOS and is supported on the platforms listed
-on the [supported platforms][2] page.
+## Sample Code
 
-### Slice to Swift Compiler
+```slice
+// Slice definitions (Hello.ice)
 
-You need the Slice to Swift compiler to build Ice for Swift and also to use Ice
-for Swift. The Slice to Swift compiler (`slice2swift`) is a command-line tool
-written in C++. You can build the Slice to Swift compiler from source, or
-alternatively you can install an Ice [binary distribution][1] that includes this
-compiler.
-
-### Swift Version
-
-Ice for Swift requires Swift 5 or later.
-
-### Carthage
-
-Carthage must be installed to build Ice for Swift. You can install Carthage
-using Homebrew:
-```
-brew install carthage
+module Demo
+{
+    interface Hello
+    {
+        void sayHello();
+    }
+}
 ```
 
-## Building Ice for Swift
+```swift
+// Client application
+import Foundation
+import Ice
 
-First download and build the PromiseKit framework by running:
-```
-carthage update
-```
-from the root directory of your ice repository.
+do {
+    let communicator = try Ice.initialize(CommandLine.arguments)
+    defer {
+        communicator.destroy()
+    }
 
-Then open `ice.xcodeproj` with Xcode and build the `Ice macOS` or `Ice iOS`
-targets.
-
-The test programs for macOS and iOS can be built using `TestDriver macOS` and
-`TestDriver iOS` respectively.
-
-## Running the Swift Test Suite
-
-Python is required to run the test suite.
-
-### macOS
-
-After a successful build, you can run the tests as follows:
-
-```
-python allTests.py --config Debug
+    let hello = try uncheckedCast(
+        prx: communicator.stringToProxy("hello:default -h localhost -p 10000")!,
+        type: HelloPrx.self)
+    try hello.sayHello()
+} catch {
+    print("Error: \(error)\n")
+    exit(1)
+}
 ```
 
-If everything worked out, you should see lots of `ok` messages. In case of a
-failure, the tests abort with `failed`.
+```swift
+// Server application
+import Foundation
+import Ice
 
-### iOS
+// Automatically flush stdout
+setbuf(__stdoutp, nil)
 
-Start the `TestDriver iOS` application on your iOS device or simulator, from
-Xcode.
+struct Printer: Hello {
+    func sayHello(current _: Ice.Current) throws {
+        print("Hello World!")
+    }
+}
 
-Then on your mac, run:
-```
-python allTests.py --config Debug --platform iphoneos
-```
-or
-```
-python allTests.py --config Debug --platform iphonesimulator
-```
-depending on your target.
+do {
+    let communicator = try Ice.initialize(CommandLine.arguments)
+    defer {
+        communicator.destroy()
+    }
 
-[1]: https://zeroc.com/downloads/ice
-[2]: https://doc.zeroc.com/ice/3.7/release-notes/supported-platforms-for-ice-3-7-3
+    let adapter = try communicator.createObjectAdapterWithEndpoints(
+        name: "Hello",
+        endpoints: "default -h localhost -p 10000")
+    try adapter.add(servant: HelloDisp(Printer()), id: Ice.stringToIdentity("hello"))
+    try adapter.activate()
+    communicator.waitForShutdown()
+} catch {
+    print("Error: \(error)\n")
+    exit(1)
+}
+```
+
+[Getting started]: https://doc.zeroc.com/ice/3.7/hello-world-application/writing-an-ice-application-with-swift
+[Examples]: https://github.com/zeroc-ice/ice-demos/tree/3.7/swift
+[Documentation]: https://doc.zeroc.com/ice/3.7
+[Building from source]: https://github.com/zeroc-ice/ice/blob/3.7/swift/BUILDING.md
+[Ice framework]: https://github.com/zeroc-ice/ice

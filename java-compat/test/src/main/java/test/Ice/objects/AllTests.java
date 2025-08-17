@@ -37,6 +37,7 @@ import test.Ice.objects.Test.UnexpectedObjectExceptionTestPrxHelper;
 import test.Ice.objects.Test.StructKey;
 import test.Ice.objects.Test.M;
 import test.Ice.objects.Test.MHolder;
+import test.Ice.objects.Test.N;
 import test.Ice.objects.Test.F1;
 import test.Ice.objects.Test.F1Holder;
 import test.Ice.objects.Test.F2Prx;
@@ -442,6 +443,32 @@ public class AllTests
                 test(f32.value.f1.name.equals("F12"));
                 test(f32.value.f2.ice_getIdentity().name.equals("F22"));
             }
+        }
+        out.println("ok");
+
+        out.print("testing sending class cycle... ");
+        out.flush();
+        {
+            Recursive rec = new Recursive();
+            rec.v = rec;
+            boolean acceptsCycles = initial.acceptsClassCycles();
+            try
+            {
+                initial.setCycle(rec);
+                test(acceptsCycles);
+            }
+            catch(Ice.UnknownLocalException ex)
+            {
+                test(!acceptsCycles);
+            }
+        }
+        out.println("ok");
+
+        out.print("testing class with interface by value member... ");
+        out.flush();
+        {
+            N n = new N(i);
+            n = initial.opN(n);
         }
         out.println("ok");
 

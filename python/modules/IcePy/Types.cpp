@@ -218,11 +218,7 @@ extern "C"
 static PyObject*
 unsetRepr(PyObject* /*v*/)
 {
-#if PY_VERSION_HEX >= 0x03000000
-    return PyBytes_FromString("Unset");
-#else
-    return PyString_FromString("Unset");
-#endif
+    return createString("Unset");
 }
 
 #ifdef WIN32
@@ -4624,7 +4620,12 @@ PyTypeObject UnsetType =
 PyObject UnsetValue =
 {
     _PyObject_EXTRA_INIT
-    1, &UnsetType
+#if PY_VERSION_HEX >= 0x030c0000
+    {1},
+#else
+    1,
+#endif
+    &UnsetType
 };
 
 PyObject* Unset = &UnsetValue;

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (c) ZeroC, Inc. All rights reserved.
 #
@@ -30,12 +30,6 @@ class Server(TestHelper):
 
     def run(self, args):
         properties = self.createTestProperties(args)
-        #
-        # In this test, we need a longer server idle time, otherwise
-        # our test servers may time out before they are used in the
-        # test.
-        #
-        properties.setProperty("Ice.ServerIdleTime", "120")  # Two minutes.
 
         port = 0
         for arg in args:

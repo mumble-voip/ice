@@ -2,9 +2,21 @@
 
 require 'xcodeproj'
 
-$projectVersion = "3.7.3"
-$macOSDeploymentTarget = "10.14"
-$iOSDeploymentTarget = "11.3"
+module Xcodeproj
+  class Project
+    module Object
+      # This class represents a custom build rule of a Target.
+      #
+        class PBXBuildRule < AbstractObject
+            attribute :dependency_file, String
+        end
+    end
+  end
+end
+
+$projectVersion = "3.7.10"
+$macOSDeploymentTarget = "11"
+$iOSDeploymentTarget = "12.0"
 
 $tests = [
     "Ice/acm",
@@ -77,7 +89,7 @@ $test_extra_sources = {
 }
 
 $test_extra_frameworks = {
-    "Ice/services" => ["Glacier2.framework", "IceStorm.framework", "IceGrid.framework"]
+    "Ice/services" => ["Glacier2.xcframework", "IceStorm.xcframework", "IceGrid.xcframework"]
 }
 
 $test_resources = {
@@ -96,6 +108,12 @@ end
 
 def create_project(name, bindist)
     project = Xcodeproj::Project.new(name)
+
+    project.build_configurations.each do |config|
+        config.build_settings["CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER"] = "YES"
+        # Disable header maps as they cause problems with parallel builds on Xcode 12
+        config.build_settings["USE_HEADERMAP"] = "NO"
+    end
 
     [:osx, :ios].each do |platform|
         create_platform_targets(project, platform, bindist)
@@ -144,7 +162,7 @@ def create_platform_targets(project, platform, bindist)
                       "ResponseHandler.cpp",
                       "SystemdJournal.cpp",
                       "Unicode.cpp"],
-            "IceSSL" => ["OpenSSL*", "SChannel*", "UWP*"]
+            "IceSSL" => ["OpenSSL*", "SChannel*"]
         }
 
         if platform == :ios then
@@ -219,6 +237,7 @@ def create_platform_targets(project, platform, bindist)
         target.frameworks_build_phases.clear()
         cpp_targets.each do |t|
             target.frameworks_build_phases.add_file_reference(t.product_reference, true)
+            target.add_dependency(t)
         end
         target.build_configurations.each { |config|
             config.build_settings["HEADER_SEARCH_PATHS"] = [
@@ -255,6 +274,7 @@ def create_platform_targets(project, platform, bindist)
         #
         ice_target = project.new_target(:framework, "Ice", platform)
         ice_target.name = "Ice #{platform_name}"
+        ice_target.add_dependency(iceimpl_target)
 
         target = ice_target
         target.frameworks_build_phases.clear()
@@ -263,10 +283,10 @@ def create_platform_targets(project, platform, bindist)
         target_set_common_build_settings(target, "Ice", platform, plist: "src/Ice/Info.plist", swift: true)
 
         target.build_configurations.each { |config|
-            config.build_settings["DEFINES_MODULE"] = "YES"
+            config.build_settings["DEFINES_MODULE"] = "NO"
         }
         target_set_framework_build_settings(target)
-        target_add_carthage_framework(target, platform, "PromiseKit.framework")
+        target_add_carthage_framework(target, platform, "PromiseKit.xcframework")
 
         group = project_group(project, "src/Ice")
         group_add_files(group, "src/Ice", ["*.plist"])
@@ -281,10 +301,8 @@ def create_platform_targets(project, platform, bindist)
         slices.each do |item|
             group = project_group(project, "slice/#{item}")
             target_add_files(target, group, "../slice/#{item}", ["*.ice"], excludes[item] || [])
-            target_add_slice2swift_build_rule(project, target, item)
+            target_add_slice2swift_build_rule(project, target, item, srcPrefix: "../slice/#{item}")
         end
-
-        target_add_swiftlint_build_phase(target, "src/Ice")
 
         #
         # Glacier2, IceStorm and IceGrid Frameworks
@@ -294,11 +312,11 @@ def create_platform_targets(project, platform, bindist)
         icegrid_target = project.new_target(:framework, "IceGrid", platform)
 
         framework_targets = {
-            "IceImpl.framework" => iceimpl_target,
-            "Ice.framework" => ice_target,
-            "Glacier2.framework" => glacier2_target,
-            "IceStorm.framework" => icestorm_target,
-            "IceGrid.framework" => icegrid_target
+            "IceImpl.xcframework" => iceimpl_target,
+            "Ice.xcframework" => ice_target,
+            "Glacier2.xcframework" => glacier2_target,
+            "IceStorm.xcframework" => icestorm_target,
+            "IceGrid.xcframework" => icegrid_target
         }
 
         [glacier2_target, icestorm_target, icegrid_target].each do | t |
@@ -312,10 +330,10 @@ def create_platform_targets(project, platform, bindist)
                                              swift: true)
 
             target.build_configurations.each { |config|
-                config.build_settings["DEFINES_MODULE"] = "YES"
+                config.build_settings["DEFINES_MODULE"] = "NO"
             }
             target_set_framework_build_settings(target)
-            target_add_carthage_framework(target, platform, "PromiseKit.framework")
+            target_add_carthage_framework(target, platform, "PromiseKit.xcframework")
 
             group = project_group(project, "src/#{framework}")
             group_add_files(group, "src/#{framework}", ["*.plist"])
@@ -324,7 +342,7 @@ def create_platform_targets(project, platform, bindist)
 
             group = project_group(project, "slice/#{framework}")
             target_add_files(target, group, "../slice/#{framework}", ["*.ice"])
-            target_add_slice2swift_build_rule(project, target, framework)
+            target_add_slice2swift_build_rule(project, target, framework, srcPrefix: "../slice/#{framework}")
             target.frameworks_build_phases.add_file_reference(ice_target.product_reference)
             target.add_dependency(ice_target)
         end
@@ -342,15 +360,14 @@ def create_platform_targets(project, platform, bindist)
     target = project.new_target(:framework, "TestCommon", platform)
     target.name = "#{target.name} #{platform_name}"
     target_set_framework_build_settings(target)
-    target_add_carthage_framework(target, platform, "PromiseKit.framework")
+    target_add_carthage_framework(target, platform, "PromiseKit.xcframework")
     if bindist then
-        target_add_carthage_framework(target, platform, "IceImpl.framework")
-        target_add_carthage_framework(target, platform, "Ice.framework")
+        target_add_carthage_framework(target, platform, "IceImpl.xcframework")
+        target_add_carthage_framework(target, platform, "Ice.xcframework")
     else
         target.frameworks_build_phases.add_file_reference(ice_target.product_reference, true)
     end
-    target_add_slice2swift_build_rule(project, target)
-    target_add_swiftlint_build_phase(target, "test/TestCommon")
+    target_add_slice2swift_build_rule(project, target, "test/TestCommon", test: true)
     test_common_target = target
 
     #
@@ -372,8 +389,7 @@ def create_platform_targets(project, platform, bindist)
                                      plist: "test/TestDriver/#{platform_name}/Info.plist",
                                      swift: true,
                                      identifier: "com.zeroc.Swift-Test-Controller")
-    target_add_slice2swift_build_rule(project, target)
-    target_add_swiftlint_build_phase(target, "test/TestDriver")
+    target_add_slice2swift_build_rule(project, target, "test/TestDriver", srcPrefix: "../scripts", test: true)
 
     group = project_group(project, "test/TestDriver")
     target_add_files(target, group, "test/TestDriver", ["*.ice", "*.swift"])
@@ -385,6 +401,9 @@ def create_platform_targets(project, platform, bindist)
         target_add_files(target, group, "test/TestDriver/#{platform_name}", ["*.xcassets"])
         target_add_files(target, group, "test/TestDriver/#{platform_name}/Base.lproj", ["*.storyboard"])
         target.add_resources(group_add_files(group, "..", ["certs"]))
+        target.build_configurations.each { |config|
+            config.build_settings["ONLY_ACTIVE_ARCH"] = "YES"
+        }
     end
 
     #
@@ -398,22 +417,23 @@ def create_platform_targets(project, platform, bindist)
 
     target_set_framework_build_settings(target)
     if bindist then
-        target_add_carthage_framework(target, platform, "IceImpl.framework", true)
-        target_add_carthage_framework(target, platform, "Ice.framework", true)
-        target_add_carthage_framework(target, platform, "Glacier2.framework", true)
-        target_add_carthage_framework(target, platform, "IceStorm.framework", true)
-        target_add_carthage_framework(target, platform, "IceGrid.framework", true)
+        target_add_carthage_framework(target, platform, "IceImpl.xcframework", true)
+        target_add_carthage_framework(target, platform, "Ice.xcframework", true)
+        target_add_carthage_framework(target, platform, "Glacier2.xcframework", true)
+        target_add_carthage_framework(target, platform, "IceStorm.xcframework", true)
+        target_add_carthage_framework(target, platform, "IceGrid.xcframework", true)
     else
         framework_targets.each do |name, t|
             file = copy_phase.add_file_reference(t.product_reference)
             file.settings = { 'ATTRIBUTES' => ['CodeSignOnCopy'] }
             target.frameworks_build_phases.add_file_reference(t.product_reference)
+            target.add_dependency(t)
         end
     end
     file = copy_phase.add_file_reference(test_common_target.product_reference)
     file.settings = { 'ATTRIBUTES' => ['CodeSignOnCopy'] }
 
-    target_add_carthage_framework(target, platform, "PromiseKit.framework", true)
+    target_add_carthage_framework(target, platform, "PromiseKit.xcframework", true)
 
     test_driver_target = target
 
@@ -425,11 +445,13 @@ def create_platform_targets(project, platform, bindist)
         target.name = "#{target.name} #{platform_name}"
 
         if bindist
-            target_add_carthage_framework(target, platform, "Ice.framework")
+            target_add_carthage_framework(target, platform, "Ice.xcframework")
         else
             target.frameworks_build_phases.add_file_reference(ice_target.product_reference, true)
+            target.add_dependency(ice_target)
         end
         target.frameworks_build_phases.add_file_reference(test_common_target.product_reference, true)
+        target.add_dependency(test_common_target)
 
         extra_frameworks = $test_extra_frameworks[test] || []
         extra_frameworks.each do |f|
@@ -439,6 +461,7 @@ def create_platform_targets(project, platform, bindist)
                 if framework_targets.include? f
                     target_framework = framework_targets[f]
                     target.frameworks_build_phases.add_file_reference(target_framework.product_reference, true)
+                    target.add_dependency(target_framework)
                 else
                     target_add_carthage_framework(target, platform, f)
                 end
@@ -450,9 +473,8 @@ def create_platform_targets(project, platform, bindist)
             config.build_settings["ENABLE_BITCODE"] = "NO"
         }
 
-        target_add_carthage_framework(target, platform, "PromiseKit.framework")
-        target_add_slice2swift_build_rule(project, target)
-        target_add_swiftlint_build_phase(target, "test/#{test}")
+        target_add_carthage_framework(target, platform, "PromiseKit.xcframework")
+        target_add_slice2swift_build_rule(project, target, "test/#{test}", test: true)
 
         #
         # Add .ice and .swift files to the target
@@ -492,7 +514,7 @@ def create_platform_targets(project, platform, bindist)
             target.name = "#{target.name} #{platform_name}"
 
             if bindist
-                target_add_carthage_framework(target, platform, "Ice.framework")
+                target_add_carthage_framework(target, platform, "Ice.xcframework")
             else
                 target.frameworks_build_phases.add_file_reference(ice_target.product_reference, true)
             end
@@ -505,6 +527,7 @@ def create_platform_targets(project, platform, bindist)
                     if framework_targets.include? f
                         target_framework = framework_targets[f]
                         target.frameworks_build_phases.add_file_reference(target_framework.product_reference, true)
+                        target.add_dependency(target_framework)
                     else
                         target_add_carthage_framework(target, platform, f)
                     end
@@ -517,9 +540,8 @@ def create_platform_targets(project, platform, bindist)
                 config.build_settings["ENABLE_BITCODE"] = "NO"
             }
 
-            target_add_carthage_framework(target, platform, "PromiseKit.framework")
-            target_add_slice2swift_build_rule(project, target)
-            target_add_swiftlint_build_phase(target, "test/#{test}")
+            target_add_carthage_framework(target, platform, "PromiseKit.xcframework")
+            target_add_slice2swift_build_rule(project, target, "test/#{test}", test: true)
 
             #
             # Add .ice and .swift files to the target
@@ -552,6 +574,7 @@ def create_platform_targets(project, platform, bindist)
         scheme.add_build_target(glacier2_target)
         scheme.add_build_target(icestorm_target)
         scheme.add_build_target(icegrid_target)
+        scheme.build_action.parallelize_buildables = false
         scheme.save_as("ice.xcodeproj", "Ice #{platform_name}", true)
     end
 end
@@ -573,7 +596,10 @@ def target_name(basename, suffix = nil)
     suffix ? "#{name} #{suffix}" : name
 end
 
-def target_add_slice2swift_build_rule(project, target, prefix = nil)
+def target_add_slice2swift_build_rule(project, target, projectPrefix, srcPrefix: nil, test: false)
+    unless srcPrefix
+        srcPrefix = projectPrefix
+    end
     #
     # Add Slice Compiler build rule to the target
     #
@@ -582,38 +608,55 @@ def target_add_slice2swift_build_rule(project, target, prefix = nil)
     rule.file_type = "pattern.proxy"
 
     slic2swift = <<~EOF
-        if [ -f "$ICE_HOME/cpp/bin/slice2swift" ]; then
-            SLICE2SWIFT="$ICE_HOME/cpp/bin/slice2swift"
+        BREW_PREFIX=$($SHELL -c 'brew --prefix' 2>/dev/null)
+        if [ -f "${ICE_HOME-unset}/bin/slice2swift" ]; then
+            SLICE2SWIFT="$ICE_HOME/bin/slice2swift"
         elif [ -f "$SRCROOT/../cpp/bin/slice2swift" ]; then
             SLICE2SWIFT="$SRCROOT/../cpp/bin/slice2swift"
-        elif [ -f /usr/local/bin/slice2swift ]; then
-            SLICE2SWIFT=/usr/local/bin/slice2swift
+        elif [ -f "${BREW_PREFIX-unset}/bin/slice2swift" ]; then
+            SLICE2SWIFT=$BREW_PREFIX/bin/slice2swift
+            SLICEDIR=$BREW_PREFIX/share/ice/slice
         else
             echo "Failed to locate slice2swift compiler"
             exit 1
         fi
     EOF
 
-    if prefix then
-        rule.name = "Slice Compiler for #{prefix}/*.ice"
-        rule.file_patterns = "*/#{prefix}/*.ice"
+    rule.name = "Slice Compiler for #{projectPrefix}/*.ice"
+    rule.run_once_per_architecture = "0"
+    rule.file_patterns = "*/#{srcPrefix.delete_prefix('../')}/*.ice"
+
+    if test then
+        rule.script = <<~EOF
+            #{slic2swift}
+            "$SLICE2SWIFT" -I"$SRCROOT/../slice" -I"$INPUT_FILE_DIR" \
+                --depend --depend-file "$DERIVED_FILE_DIR/$INPUT_FILE_BASE.d" "$INPUT_FILE_PATH"
+
+            echo "$INPUT_FILE_BASE.ice: $SLICE2SWIFT" >> "$DERIVED_FILE_DIR/$INPUT_FILE_BASE.d"
+
+            "$SLICE2SWIFT" -I"$SRCROOT/../slice" -I"$INPUT_FILE_DIR" --output-dir "$DERIVED_FILE_DIR" "$INPUT_FILE_PATH"
+        EOF
+        rule.input_files = find_files(srcPrefix, ["*.ice"]).map { |p| "#{srcPrefix}/#{p}" }
+        rule.output_files = ["$(DERIVED_FILE_DIR)/$(INPUT_FILE_BASE).swift"]
+        rule.dependency_file = "$(DERIVED_FILE_DIR)/$(INPUT_FILE_BASE).d"
+    else
         rule.script = <<~EOF
             #{slic2swift}
             BASENAME=$(basename -- "$INPUT_FILE_PATH")
             BASENAME="${BASENAME%.*}"
-            mkdir -p "$DERIVED_FILE_DIR/#{prefix}"
-            "$SLICE2SWIFT" -I"$SRCROOT/../slice" -I"$INPUT_FILE_DIR" --output-dir "$DERIVED_FILE_DIR/#{prefix}" "$INPUT_FILE_PATH"
-            mv "$DERIVED_FILE_DIR/#{prefix}/$BASENAME.swift" "$DERIVED_FILE_DIR/#{prefix}_$BASENAME.swift"
+            mkdir -p "$DERIVED_FILE_DIR/#{projectPrefix}"
+            "$SLICE2SWIFT" -I"$SRCROOT/../slice" -I"$INPUT_FILE_DIR" \
+                --depend --depend-file "$DERIVED_FILE_DIR/#{projectPrefix}_$INPUT_FILE_BASE.d" "$INPUT_FILE_PATH"
+
+            echo "$INPUT_FILE_BASE.ice: $SLICE2SWIFT" >> "$DERIVED_FILE_DIR/#{projectPrefix}_$INPUT_FILE_BASE.d"
+
+            "$SLICE2SWIFT" -I"$SRCROOT/../slice" -I"$INPUT_FILE_DIR" --output-dir "$DERIVED_FILE_DIR/#{projectPrefix}" \
+                "$INPUT_FILE_PATH"
+            mv "$DERIVED_FILE_DIR/#{projectPrefix}/$BASENAME.swift" "$DERIVED_FILE_DIR/#{projectPrefix}_$BASENAME.swift"
         EOF
-        rule.output_files = ["$(DERIVED_FILE_DIR)/#{prefix}_$(INPUT_FILE_BASE).swift"]
-    else
-        rule.name = "Slice Compiler"
-        rule.file_patterns = "*.ice"
-        rule.script = <<~EOF
-            #{slic2swift}
-            "$SLICE2SWIFT" -I"$SRCROOT/../slice" -I"$INPUT_FILE_DIR" --output-dir "$DERIVED_FILE_DIR" "$INPUT_FILE_PATH"
-        EOF
-        rule.output_files = ["$(DERIVED_FILE_DIR)/$(INPUT_FILE_BASE).swift"]
+        rule.input_files = find_files(srcPrefix, ["*.ice"]).map { |p| "$SRCROOT/#{srcPrefix}/#{p}" }
+        rule.output_files = ["$(DERIVED_FILE_DIR)/#{projectPrefix}_$(INPUT_FILE_BASE).swift"]
+        rule.dependency_file = "$(DERIVED_FILE_DIR)/#{projectPrefix}_$(INPUT_FILE_BASE).d"
     end
     target.build_rules << rule
 end
@@ -624,18 +667,18 @@ def target_add_slice2cpp_build_rule(project, target, prefix)
     #
     rule = project.new(Xcodeproj::Project::PBXBuildRule)
     rule.compiler_spec = "com.apple.compilers.proxy.script"
+    rule.run_once_per_architecture = "0"
     rule.file_type = "pattern.proxy"
     rule.name = "Slice2Cpp Compiler for #{prefix}/*.ice"
     rule.file_patterns = "*/#{prefix}/*.ice"
     rule.script = <<~EOF
-        if [ -f "$ICE_HOME/cpp/bin/slice2cpp" ]; then
-            SLICE2CPP="$ICE_HOME/cpp/bin/slice2cpp"
+        BREW_PREFIX=$($SHELL -c 'brew --prefix' 2>/dev/null)
+        if [ -f "${ICE_HOME-unset}/bin/slice2cpp" ]; then
+            SLICE2CPP="$ICE_HOME/bin/slice2cpp"
         elif [ -f "$SRCROOT/../cpp/bin/slice2cpp" ]; then
             SLICE2CPP="$SRCROOT/../cpp/bin/slice2cpp"
-        elif [ -f /usr/local/opt/slice2swift/libexec/bin/slice2cpp ]; then
-            SLICE2CPP=/usr/local/opt/slice2swift/libexec/bin/slice2cpp
-        elif [ -f /usr/local/bin/slice2cpp ]; then
-            SLICE2CPP=/usr/local/bin/slice2cpp
+        elif [ -f "${BREW_PREFIX-unset}/bin/slice2cpp" ]; then
+            SLICE2CPP=$BREW_PREFIX/bin/slice2cpp
         else
             echo "Failed to locate slice2cpp compiler"
             exit 1
@@ -644,27 +687,30 @@ def target_add_slice2cpp_build_rule(project, target, prefix)
         BASENAME=$(basename -- "$INPUT_FILE_PATH")
         BASENAME="${BASENAME%.*}"
         mkdir -p "$DERIVED_FILE_DIR/#{prefix}"
-        $SLICE2CPP -I"$SRCROOT/../slice" -D ICE_SWIFT --include-dir #{prefix} --output-dir "$DERIVED_FILE_DIR/#{prefix}" "$INPUT_FILE_PATH"
+        $SLICE2CPP -I"$SRCROOT/../slice" -D ICE_SWIFT --include-dir #{prefix} \
+            --output-dir "$DERIVED_FILE_DIR/#{prefix}" \
+            --depend --depend-file "$DERIVED_FILE_DIR/#{prefix}/$INPUT_FILE_BASE.d" \
+            "$INPUT_FILE_PATH"
+
+        echo "$INPUT_FILE_BASE.ice: $SLICE2CPP" >> "$DERIVED_FILE_DIR/#{prefix}/$INPUT_FILE_BASE.d"
+
+        $SLICE2CPP -I"$SRCROOT/../slice" -D ICE_SWIFT --include-dir #{prefix} \
+            --output-dir "$DERIVED_FILE_DIR/#{prefix}" \
+            "$INPUT_FILE_PATH"
         mkdir -p "$SYMROOT/$PLATFORM_NAME/include/#{prefix}"
         mv "$DERIVED_FILE_DIR/#{prefix}/$BASENAME.h" "$SYMROOT/$PLATFORM_NAME/include/#{prefix}/$BASENAME.h"
     EOF
     rule.output_files = ["$(DERIVED_FILE_DIR)/#{prefix}/$(INPUT_FILE_BASE).cpp",
                          "$(SYMROOT)/$(PLATFORM_NAME)/include/#{prefix}/$(INPUT_FILE_BASE).h"]
+    inputs = find_files("../slice/#{prefix}", ["*.ice"]).map { |p| File.basename(p, ".ice") }
+    rule.input_files = inputs.map { |p|
+        "$SRCROOT/../slice/#{prefix}/#{p}.ice"
+    }
+    rule.dependency_file= "$(DERIVED_FILE_DIR)/#{prefix}/$(INPUT_FILE_BASE).d"
     target.build_rules << rule
 end
 
-def target_add_swiftlint_build_phase(target, basedir)
-    phase = target.new_shell_script_build_phase("Swiftformat & Swiftlint")
-    phase.shell_script = <<~EOF
-        if which swiftlint >/dev/null; then
-            swiftlint --path "$SRCROOT/#{basedir}" --config "$SRCROOT/.swiftlint.yml"
-        else
-            echo "warning: SwiftLint not installed, download from https://github.com/realm/SwiftLint"
-        fi
-    EOF
-end
-
-def group_add_files(group, basedir, patterns, exclude = [])
+def find_files(basedir, patterns, exclude = [])
     files = []
     Dir.chdir(basedir) do
         patterns.each do |p|
@@ -673,9 +719,12 @@ def group_add_files(group, basedir, patterns, exclude = [])
             end
         end
     end
-    files = files.reject { |item| exclude.any? { |pattern| item.match(pattern) } }
-    files = files.uniq
-    files.map { |file|  group.find_subpath(File.basename(file)) ||  group.new_file("#{basedir}/#{file}") }
+    return files.reject { |item| exclude.any? { |pattern| item.match(pattern) } }
+end
+
+def group_add_files(group, basedir, patterns, exclude = [])
+    find_files(basedir, patterns, exclude).map { |file|
+        group.find_subpath(File.basename(file)) ||  group.new_file("#{basedir}/#{file}") }
 end
 
 def target_add_files(target, group, basedir, patterns, excludes = [])
@@ -694,7 +743,8 @@ def target_set_common_build_settings(target, product, platform, plist: nil, swif
     target.build_configurations.each { |config|
         config.build_settings["GCC_SYMBOLS_PRIVATE_EXTERN"] = "YES"
         config.build_settings["ENABLE_TESTABILITY"] = "NO"
-        config.build_settings["CODE_SIGN_STYLE"] = "Automatic"
+        config.build_settings["GCC_TREAT_WARNINGS_AS_ERRORS"] = "YES"
+        config.build_settings["CLANG_CXX_LANGUAGE_STANDARD"] = "c++17"
         config.build_settings["CURRENT_PROJECT_VERSION"] = $projectVersion
         config.build_settings["DYLIB_CURRENT_VERSION"] = $projectVersion
         config.build_settings["DYLIB_COMPATIBILITY_VERSION"] = "0"
@@ -706,7 +756,8 @@ def target_set_common_build_settings(target, product, platform, plist: nil, swif
         config.build_settings["PRODUCT_BUNDLE_IDENTIFIER"] = identifier || "com.zeroc.#{product}"
 
         if swift then
-            config.build_settings["SWIFT_VERSION"] = "5.0"
+            config.build_settings["SWIFT_VERSION"] = "5.2"
+            config.build_settings["SWIFT_TREAT_WARNINGS_AS_ERRORS"] = "YES"
         end
 
         config.build_settings["SUPPORTED_PLATFORMS"] =
@@ -715,7 +766,19 @@ def target_set_common_build_settings(target, product, platform, plist: nil, swif
         config.build_settings["AVAILABLE_PLATFORMS"] =
             (target.name.include? "macOS") ? "macosx" : "iphoneos iphonesimulator"
 
-        config.build_settings["CODE_SIGN_IDENTITY"] = "-"
+        if ENV.has_key?("DEVELOPMENT_TEAM") then
+            if target.product_type == "com.apple.product-type.application" or
+              target.product_type == "com.apple.product-type.bundle" then
+                config.build_settings["CODE_SIGN_STYLE"] = "Automatic"
+                config.build_settings["CODE_SIGN_IDENTITY"] = "Apple Development"
+                config.build_settings["DEVELOPMENT_TEAM"] = ENV["DEVELOPMENT_TEAM"]
+            end
+        end
+
+        if target.product_type == "com.apple.product-type.application" or
+          target.product_type == "com.apple.product-type.bundle" then
+            config.build_settings["DEAD_CODE_STRIPPING"] = "YES"
+        end
 
         if platform == :osx
             config.build_settings["MACOSX_DEPLOYMENT_TARGET"] = $macOSDeploymentTarget
@@ -726,25 +789,25 @@ def target_set_common_build_settings(target, product, platform, plist: nil, swif
 end
 
 def target_set_framework_build_settings(target)
-    carthage_prefix = (target.name.include? "macOS") ? "Mac" : "iOS"
     target.build_configurations.each { |config|
-        config.build_settings["FRAMEWORK_SEARCH_PATHS"] = "$(SRCROOT)/../Carthage/Build/#{carthage_prefix}"
+        config.build_settings["FRAMEWORK_SEARCH_PATHS"] = "$(SRCROOT)/../Carthage/Build/"
     }
 end
 
 def target_add_carthage_framework(target, platform, framework, copy=false)
     group = target.project.frameworks_group[(platform == :osx ? "OS X" : "iOS")]
-    carthage_prefix = (platform == :osx) ? "Mac" : "iOS"
-    group_add_files(group, "../Carthage/Build/#{carthage_prefix}", [framework]).each do |ref|
-        target.frameworks_build_phases.add_file_reference(ref, true)
+    group_add_files(group, "../Carthage/Build", [framework]).each do |ref|
+        # When copy is true we copy the framework to the target, for :ios targets we use the carthage copy-frameworks
+        # script for macOS targets we use the regular copy phase.
         if copy then
-            copy_phase = target.shell_script_build_phases.select { |script| script.name == "Copy Frameworks" }.first
-            unless copy_phase then
-                copy_phase = target.new_shell_script_build_phase("Copy Frameworks")
-                copy_phase.shell_script = "/usr/local/bin/carthage copy-frameworks"
-            end
-            copy_phase.input_paths << "$(SRCROOT)/../Carthage/Build/#{carthage_prefix}/#{framework}"
-            copy_phase.output_paths << "$(BUILT_PRODUCTS_DIR)/$(FRAMEWORKS_FOLDER_PATH)/#{framework}"
+            file = target.copy_files_build_phases[0].add_file_reference(ref)
+            file.settings = { 'ATTRIBUTES' => ['CodeSignOnCopy'] }
+        end
+
+        # when copy is false or the target platform is ios we also have to add a reference into the target
+        # frameworks build phase.
+        unless copy and platform == :macos then
+            target.frameworks_build_phases.add_file_reference(ref, true)
         end
     end
 end

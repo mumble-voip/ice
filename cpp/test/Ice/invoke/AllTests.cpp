@@ -380,6 +380,14 @@ allTests(Test::TestHelper* helper)
         }
     }
 
+    {
+        // Oneway operation with a oneway proxy must return empty encapsulation.
+        Ice::ByteSeq inEncaps, outEncaps;
+        bool returnValue = oneway->ice_invoke("opOneway", Ice::ICE_ENUM(OperationMode, Normal), inEncaps, outEncaps);
+        test(returnValue);
+        test(outEncaps.size() == 0); // Empty encapsulation
+    }
+
     cout << "ok" << endl;
 
     cout << "testing asynchronous ice_invoke... " << flush;
@@ -439,9 +447,20 @@ allTests(Test::TestHelper* helper)
     //
 
     {
+        // Oneway operation with a oneway proxy must return empty encapsulation.
         Ice::ByteSeq inEncaps, outEncaps;
+        bool returnValue = oneway->ice_invoke("opOneway", Ice::OperationMode::Normal, inEncaps, outEncaps);
+        test(returnValue);
+        test(outEncaps.size() == 0); // Empty encapsulation
+    }
+
+    {
+        // Oneway operation with a oneway proxy must return empty encapsulation.
+        Ice::ByteSeq inEncaps;
         auto completed = oneway->ice_invokeAsync("opOneway", Ice::OperationMode::Normal, inEncaps);
-        test(completed.get().returnValue);
+        auto result = completed.get();
+        test(result.returnValue);
+        test(result.outParams.size() == 0); // Empty encapsulation
     }
 
     {
@@ -456,7 +475,7 @@ allTests(Test::TestHelper* helper)
         cl->ice_invokeAsync("opString", Ice::OperationMode::Normal, inEncaps,
             [&](bool ok, vector<Ice::Byte> outParams)
             {
-                outEncaps = move(outParams);
+                outEncaps = std::move(outParams);
                 completed.set_value(ok);
             },
             [&](exception_ptr ex)
@@ -571,7 +590,7 @@ allTests(Test::TestHelper* helper)
         cl->ice_invokeAsync("opException", Ice::OperationMode::Normal, inEncaps,
             [&](bool ok, vector<Ice::Byte> outParams)
             {
-                outEncaps = move(outParams);
+                outEncaps = std::move(outParams);
                 completed.set_value(ok);
             },
             [&](exception_ptr ex)
@@ -646,6 +665,8 @@ allTests(Test::TestHelper* helper)
         {
             test(false);
         }
+        test(result);
+        test(outEncaps.size() == 0); // Empty encapsulation
 
         Ice::OutputStream out(communicator);
         out.startEncapsulation();

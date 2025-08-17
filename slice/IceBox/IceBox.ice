@@ -12,6 +12,7 @@
 [["ice-prefix"]]
 
 [["js:module:ice"]]
+[["js:cjs-module"]]
 
 [["objc:header-dir:objc"]]
 
@@ -126,15 +127,30 @@ local interface Service
 
 /**
  *
- * An Observer interface implemented by admin clients
- * interested in the status of services
+ * An Observer interface implemented by admin clients interested in the status
+ * of services.
  *
  * @see ServiceManager
  *
  **/
 interface ServiceObserver
 {
+    /**
+     *
+     * Receives the names of the services that were started.
+     *
+     * @param services The names of the services.
+     *
+     **/
     void servicesStarted(Ice::StringSeq services);
+
+    /**
+     *
+     * Receives the names of the services that were stopped.
+     *
+     * @param services The names of the services.
+     *
+     **/
     void servicesStopped(Ice::StringSeq services);
 }
 

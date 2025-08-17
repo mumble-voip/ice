@@ -3,6 +3,7 @@
 //
 
 const Ice = require("../Ice/Timer").Ice;
+
 const Timer = Ice.Timer;
 
 class P extends Promise
@@ -16,7 +17,7 @@ class P extends Promise
                 res = resolve;
                 rej = reject;
 
-                if(cb !== undefined)
+                if(cb)
                 {
                     cb(resolve, reject);
                 }

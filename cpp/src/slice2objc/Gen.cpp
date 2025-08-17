@@ -212,7 +212,15 @@ Slice::ObjCVisitor::writeDispatchAndMarshalling(const ClassDefPtr& p)
     ClassList allBases = p->allBases();
     StringList ids;
 
+#ifdef ICE_CPP11_COMPILER
+    transform(allBases.begin(), allBases.end(), back_inserter(ids),
+              [](const ContainedPtr& it)
+              {
+                  return it->scoped();
+              });
+#else
     transform(allBases.begin(), allBases.end(), back_inserter(ids), ::IceUtil::constMemFun(&Contained::scoped));
+#endif
 
     StringList other;
     other.push_back(p->scoped());
@@ -3098,23 +3106,14 @@ Slice::Gen::DelegateMVisitor::visitOperation(const OperationPtr& p)
         if(returnType)
         {
             _M << nl << outTypeToString(returnType, p->returnIsOptional(), true) << " ret";
-            if(!isValueType(returnType))
-            {
-                _M << " = nil;";
-            }
-            else
-            {
-                _M << ";";
-            }
+            _M << " = " << defaultValue(returnType, p->returnIsOptional()) << ";";
         }
         if(p->returnsData())
         {
             for(ParamDeclList::const_iterator op = outParams.begin(); op != outParams.end(); ++op)
             {
-                if(!isValueType((*op)->type()))
-                {
-                    _M << nl << "*" << getParamName(*op, true) << " = nil;";
-                }
+                _M << nl << "*" << getParamName(*op, true) << " = " << defaultValue((*op)->type(), (*op)->optional())
+                   << ";";
             }
         }
         _M << nl << "if(!ok)";

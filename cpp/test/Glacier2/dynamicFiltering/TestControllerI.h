@@ -25,6 +25,13 @@ struct SessionTuple
         configured(false)
     {}
 
+    SessionTuple(const SessionTuple& st):
+        session(st.session),
+        sessionControl(st.sessionControl),
+        configured(st.configured)
+    {
+    }
+
     SessionTuple&
     operator=(const SessionTuple& rhs)
     {
@@ -86,6 +93,8 @@ public:
     void notifyDestroy(const Glacier2::SessionControlPrx&);
 
 private:
+
+    IceUtil::Mutex _mutex;
     std::vector<SessionTuple> _sessions;
     std::vector<TestConfiguration> _configurations;
 

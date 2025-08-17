@@ -376,12 +376,12 @@ Ice::InputStream::readAndCheckSeqSize(int minSize)
     // top-level sequence or enclosed sequence it doesn't really matter).
     //
     // Otherwise, we are reading an enclosed sequence and we have to bump
-    // _minSeqSize by the minimum size that this sequence will  require on
+    // _minSeqSize by the minimum size that this sequence will require on
     // the stream.
     //
     // The goal of this check is to ensure that when we start un-marshalling
     // a new sequence, we check the minimal size of this new sequence against
-    // the estimated remaining buffer size. This estimatation is based on
+    // the estimated remaining buffer size. This estimation is based on
     // the minimum size of the enclosing sequences, it's _minSeqSize.
     //
     if(_startSeq == -1 || i > (b.begin() + _startSeq + _minSeqSize))
@@ -608,12 +608,12 @@ Ice::InputStream::read(pair<const Short*, const Short*>& v, IceUtil::ScopedArray
         v.second = reinterpret_cast<Short*>(i);
 #else
 #  ifdef ICE_CPP11_MAPPING
-        auto result = new short[sz];
+        auto result = new short[static_cast<size_t>(sz)];
         _deleters.push_back([result] { delete[] result; });
         v.first = result;
         v.second = result + sz;
 #  else
-        result.reset(new Short[sz]);
+        result.reset(new Short[static_cast<size_t>(sz)]);
         v.first = result.get();
         v.second = result.get() + sz;
 #   endif
@@ -691,12 +691,12 @@ Ice::InputStream::read(pair<const Int*, const Int*>& v, ::IceUtil::ScopedArray<I
 #else
 
 #  ifdef ICE_CPP11_MAPPING
-        auto result = new int[sz];
+        auto result = new int[static_cast<size_t>(sz)];
         _deleters.push_back([result] { delete[] result; });
         v.first = result;
         v.second = result + sz;
 #  else
-        result.reset(new Int[sz]);
+        result.reset(new Int[static_cast<size_t>(sz)]);
         v.first = result.get();
         v.second = result.get() + sz;
 #  endif
@@ -812,12 +812,12 @@ Ice::InputStream::read(pair<const Long*, const Long*>& v, IceUtil::ScopedArray<L
 #else
 
 #  ifdef ICE_CPP11_MAPPING
-        auto result = new long long[sz];
+        auto result = new long long[static_cast<size_t>(sz)];
         _deleters.push_back([result] { delete[] result; });
         v.first = result;
         v.second = result + sz;
 #  else
-        result.reset(new Long[sz]);
+        result.reset(new Long[static_cast<size_t>(sz)]);
         v.first = result.get();
         v.second = result.get() + sz;
 #  endif
@@ -925,12 +925,12 @@ Ice::InputStream::read(pair<const Float*, const Float*>& v, IceUtil::ScopedArray
 #else
 
 #  ifdef ICE_CPP11_MAPPING
-        auto result = new float[sz];
+        auto result = new float[static_cast<size_t>(sz)];
         _deleters.push_back([result] { delete[] result; });
         v.first = result;
         v.second = result + sz;
 #  else
-        result.reset(new Float[sz]);
+        result.reset(new Float[static_cast<size_t>(sz)]);
         v.first = result.get();
         v.second = result.get() + sz;
 #  endif
@@ -1046,12 +1046,12 @@ Ice::InputStream::read(pair<const Double*, const Double*>& v, IceUtil::ScopedArr
 #else
 
 #  ifdef ICE_CPP11_MAPPING
-        auto result = new double[sz];
+        auto result = new double[static_cast<size_t>(sz)];
         _deleters.push_back([result] { delete[] result; });
         v.first = result;
         v.second = result + sz;
 #  else
-        result.reset(new Double[sz]);
+        result.reset(new Double[static_cast<size_t>(sz)]);
         v.first = result.get();
         v.second = result.get() + sz;
 #  endif
@@ -1819,12 +1819,17 @@ Ice::InputStream::EncapsDecoder::addPatchEntry(Int index, PatchFunc patchFunc, v
     assert(index > 0);
 
     //
-    // Check if we already unmarshaled the object. If that's the case,
-    // just patch the object smart pointer and we're done.
+    // Check if we already unmarshaled the object. If that's the case, just patch the object smart pointer
+    // and we're done. A null value indicates we've encountered a cycle and Ice.AllowClassCycles is false.
     //
     IndexToPtrMap::iterator p = _unmarshaledMap.find(index);
     if(p != _unmarshaledMap.end())
     {
+        if (p->second == ICE_NULLPTR)
+        {
+            assert(!_stream->_instance->acceptClassCycles());
+            throw MarshalException(__FILE__, __LINE__, "cycle detected during Value unmarshaling");
+        }
         (*patchFunc)(patchAddr, p->second);
         return;
     }
@@ -1862,7 +1867,10 @@ Ice::InputStream::EncapsDecoder::unmarshal(Int index, const Ice::ValuePtr& v)
     // Add the object to the map of unmarshaled instances, this must
     // be done before reading the instances (for circular references).
     //
-    _unmarshaledMap.insert(make_pair(index, v));
+    // If circular references are not allowed we insert null (for cycle detection) and add
+    // the object to the map once it has been fully unmarshaled.
+    //
+    _unmarshaledMap.insert(make_pair(index, _stream->_instance->acceptClassCycles() ? v : Ice::ValuePtr()));
 
     //
     // Read the object.
@@ -1914,6 +1922,13 @@ Ice::InputStream::EncapsDecoder::unmarshal(Int index, const Ice::ValuePtr& v)
             }
             _valueList.clear();
         }
+    }
+
+    if(!_stream->_instance->acceptClassCycles())
+    {
+        // This class has been fully unmarshaled without creating any cycles
+        // It can be added to the map now.
+        _unmarshaledMap[index] = v;
     }
 }
 

@@ -11,6 +11,7 @@
 [["ice-prefix"]]
 
 [["js:module:ice"]]
+[["js:cjs-module"]]
 
 [["objc:dll-export:ICE_API"]]
 [["objc:header-dir:objc"]]
@@ -79,7 +80,7 @@ interface Router
 
 /**
  *
- * This inferface should be implemented by services implementing the
+ * This interface should be implemented by services implementing the
  * Ice::Router interface. It should be advertised through an Ice
  * object with the identity `Ice/RouterFinder'. This allows clients to
  * retrieve the router proxy with just the endpoint information of the

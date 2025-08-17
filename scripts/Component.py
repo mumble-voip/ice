@@ -35,9 +35,6 @@ class Ice(Component):
         "mx" : [True],
     }
 
-    def __init__(self):
-        self.nugetVersion = None
-
     def useBinDist(self, mapping, current):
         return Component._useBinDist(self, mapping, current, "ICE_BIN_DIST")
 
@@ -75,34 +72,8 @@ class Ice(Component):
         elif "static" in config.buildConfig:
             return (["Ice/.*", "IceSSL/configuration", "IceDiscovery/simple", "IceGrid/simple", "Glacier2/application"],
                     ["Ice/library", "Ice/plugin"])
-        elif isinstance(mapping, CppMapping) and config.uwp:
-            return (["Ice/.*", "IceSSL/configuration"],
-                    ["Ice/background",
-                     "Ice/echo",
-                     "Ice/faultTolerance",
-                     "Ice/gc",
-                     "Ice/library",
-                     "Ice/logger",
-                     "Ice/networkProxy",        # SOCKS proxy not supported with UWP
-                     "Ice/properties",          # Property files are not supported with UWP
-                     "Ice/plugin",
-                     "Ice/threadPoolPriority"])
         elif isinstance(platform, Windows) and platform.getCompiler() in ["v100"]:
             return (["Ice/.*", "IceSSL/.*", "IceBox/.*", "IceDiscovery/.*", "IceUtil/.*", "Slice/.*"], [])
-        elif isinstance(mapping, CSharpMapping) and config.xamarin:
-            return (["Ice/.*"],
-                    ["Ice/hash",
-                     "Ice/faultTolerance",
-                     "Ice/metrics",
-                     "Ice/assemblies",
-                     "Ice/background",
-                     "Ice/dispatcher",
-                     "Ice/networkProxy",
-                     "Ice/throughput",
-                     "Ice/plugin",
-                     "Ice/logger",
-                     "Ice/properties",
-                     "Ice/slicing/*"])
         elif isinstance(mapping, JavaMapping) and config.android:
             return (["Ice/.*"],
                     ["Ice/hash",
@@ -157,13 +128,6 @@ class Ice(Component):
             elif parent in ["Glacier2"] and testId not in ["Glacier2/application", "Glacier2/sessionHelper"]:
                 return False
 
-        if current.config.xamarin and not current.config.uwp:
-            #
-            # With Xamarin on Android and iOS Ice/udp is only supported with IPv4
-            #
-            if current.config.ipv6 and testId in ["Ice/udp"]:
-                return False
-
         return True
 
     def isMainThreadOnly(self, testId):
@@ -184,7 +148,7 @@ class Ice(Component):
         if parent not in ["Ice", "IceBox", "IceGrid", "Glacier2", "IceStorm", "IceDiscovery", "IceBridge"]:
             return None
 
-        if not isinstance(testcase, ClientServerTestCase):
+        if isinstance(testcase, CollocatedTestCase):
             return None
 
         # Define here Ice tests which are slow to execute and for which it's not useful to test different options
@@ -192,7 +156,7 @@ class Ice(Component):
             return self.serviceOptions
 
         # We only run the client/server tests defined for cross testing with all transports
-        if testcase.__class__.__name__ == 'ClientServerTestCase' and self.isCross(testcase.getTestSuite().getId()):
+        if isinstance(testcase, ClientServerTestCase) and self.isCross(testcase.getTestSuite().getId()):
             return self.transportOptions
         elif parent in ["Ice", "IceBox"]:
             return self.coreOptions
@@ -269,9 +233,9 @@ for m in filter(lambda x: os.path.isdir(os.path.join(toplevel, x)), os.listdir(t
 
 if isinstance(platform, Windows):
     # Windows doesn't support all the mappings, we take them out here.
-    if platform.getCompiler() not in ["v140", "v141"]:
+    if platform.getCompiler() not in ["v140", "v141", "v142", "v143"]:
         Mapping.disable("python")
-    if platform.getCompiler() not in ["v140", "v141"]:
+    if platform.getCompiler() not in ["v140", "v141", "v142"]:
         Mapping.disable("php")
 
 #

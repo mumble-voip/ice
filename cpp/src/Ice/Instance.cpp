@@ -921,8 +921,8 @@ IceInternal::Instance::setLogger(const Ice::LoggerPtr& logger)
 void
 IceInternal::Instance::setThreadHook(function<void()> threadStart, function<void()> threadStop)
 {
-    _initData.threadStart = move(threadStart);
-    _initData.threadStop = move(threadStop);
+    _initData.threadStart = std::move(threadStart);
+    _initData.threadStop = std::move(threadStop);
 }
 #else
 void
@@ -950,6 +950,7 @@ IceInternal::Instance::Instance(const CommunicatorPtr& communicator, const Initi
     _classGraphDepthMax(0),
     _collectObjects(false),
     _toStringMode(ICE_ENUM(ToStringMode, Unicode)),
+    _acceptClassCycles(false),
     _implicitContext(0),
     _stringConverter(Ice::getProcessStringConverter()),
     _wstringConverter(Ice::getProcessWstringConverter()),
@@ -1053,7 +1054,7 @@ IceInternal::Instance::Instance(const CommunicatorPtr& communicator, const Initi
 
             if(instanceCount() == 1)
             {
-#if defined(_WIN32) && !defined(ICE_OS_UWP)
+#if defined(_WIN32)
                 WORD version = MAKEWORD(1, 1);
                 WSADATA data;
                 if(WSAStartup(version, &data) != 0)
@@ -1227,6 +1228,8 @@ IceInternal::Instance::Instance(const CommunicatorPtr& communicator, const Initi
             throw InitializationException(__FILE__, __LINE__, "The value for Ice.ToStringMode must be Unicode, ASCII or Compat");
         }
 
+        const_cast<bool&>(_acceptClassCycles) = _initData.properties->getPropertyAsInt("Ice.AcceptClassCycles") > 0;
+
         const_cast<ImplicitContextIPtr&>(_implicitContext) =
             ImplicitContextI::create(_initData.properties->getProperty("Ice.ImplicitContext"));
 
@@ -1322,7 +1325,7 @@ IceInternal::Instance::~Instance()
     }
     if(instanceCount() == 0)
     {
-#if defined(_WIN32) && !defined(ICE_OS_UWP)
+#if defined(_WIN32)
         WSACleanup();
 #endif
 
@@ -1476,7 +1479,6 @@ IceInternal::Instance::finishSetup(int& argc, const char* argv[], const Ice::Com
     try
     {
         _endpointHostResolver = new EndpointHostResolver(this);
-#ifndef ICE_OS_UWP
         bool hasPriority = _initData.properties->getProperty("Ice.ThreadPriority") != "";
         int priority = _initData.properties->getPropertyAsInt("Ice.ThreadPriority");
         if(hasPriority)
@@ -1487,7 +1489,6 @@ IceInternal::Instance::finishSetup(int& argc, const char* argv[], const Ice::Com
         {
             _endpointHostResolver->start();
         }
-#endif
     }
     catch(const IceUtil::Exception& ex)
     {
@@ -1680,12 +1681,10 @@ IceInternal::Instance::destroy()
     {
         _serverThreadPool->joinWithAllThreads();
     }
-#ifndef ICE_OS_UWP
     if(_endpointHostResolver)
     {
         _endpointHostResolver->getThreadControl().join();
     }
-#endif
 
 #ifdef ICE_CPP11_COMPILER
     for(const auto& p : _objectFactoryMap)

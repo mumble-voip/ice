@@ -714,20 +714,25 @@ Slice::Gen::generate(const UnitPtr& p)
     printGeneratedHeader(_jsout, _fileBase + ".ice");
 
     //
-    // Check for global "js:module:ice" metadata. If this is set then we are building Ice.
+    // Check for file "js:module:ice" metadata. If this is set then we are building Ice.
     //
     bool icejs = module == "ice";
 
     //
-    // Check for global "js:es6-module" metadata. If this is set we are using es6 module mapping
+    // Check what kind of JavaScript module to generate:
+    //  "js:es6-module" -> ESM
+    //  "js:cjs-module" -> Common JS
+    //  Default -> IIFE (Immediately Invoked Function Expression)
     //
     bool es6module = dc->findMetaData("js:es6-module") == "js:es6-module";
+    bool cjsmodule = dc->findMetaData("js:cjs-module") == "js:cjs-module";
+    bool iifemodule = !es6module && !cjsmodule;
 
     _jsout << nl << "/* eslint-disable */";
     _jsout << nl << "/* jshint ignore: start */";
     _jsout << nl;
 
-    if(!es6module)
+    if(iifemodule)
     {
         if(icejs)
         {
@@ -757,7 +762,7 @@ Slice::Gen::generate(const UnitPtr& p)
     ExportVisitor exportVisitor(_jsout, icejs, es6module);
     p->visit(&exportVisitor, false);
 
-    if(!es6module)
+    if(iifemodule)
     {
         if(icejs)
         {
@@ -959,57 +964,57 @@ vector<string>
 Slice::Gen::RequireVisitor::writeRequires(const UnitPtr& p)
 {
     vector<string> seenModules;
-    map<string, list<string> > requires;
+    map<string, list<string> > jsRequires;
     if(_icejs)
     {
-        requires["Ice"] = list<string>();
+        jsRequires["Ice"] = list<string>();
 
         //
         // Generate require() statements for all of the run-time code needed by the generated code.
         //
         if(_seenClass || _seenObjectSeq || _seenObjectDict)
         {
-            requires["Ice"].push_back("Ice/Object");
-            requires["Ice"].push_back("Ice/Value");
+            jsRequires["Ice"].push_back("Ice/Object");
+            jsRequires["Ice"].push_back("Ice/Value");
         }
         if(_seenClass)
         {
-            requires["Ice"].push_back("Ice/ObjectPrx");
+            jsRequires["Ice"].push_back("Ice/ObjectPrx");
         }
         if(_seenOperation)
         {
-            requires["Ice"].push_back("Ice/Operation");
+            jsRequires["Ice"].push_back("Ice/Operation");
         }
         if(_seenStruct)
         {
-            requires["Ice"].push_back("Ice/Struct");
+            jsRequires["Ice"].push_back("Ice/Struct");
         }
 
         if(_seenLocalException || _seenUserException)
         {
-            requires["Ice"].push_back("Ice/Exception");
+            jsRequires["Ice"].push_back("Ice/Exception");
         }
 
         if(_seenEnum)
         {
-            requires["Ice"].push_back("Ice/EnumBase");
+            jsRequires["Ice"].push_back("Ice/EnumBase");
         }
 
         if(_seenCompactId)
         {
-            requires["Ice"].push_back("Ice/CompactIdRegistry");
+            jsRequires["Ice"].push_back("Ice/CompactIdRegistry");
         }
 
-        requires["Ice"].push_back("Ice/Long");
-        requires["Ice"].push_back("Ice/HashMap");
-        requires["Ice"].push_back("Ice/HashUtil");
-        requires["Ice"].push_back("Ice/ArrayUtil");
-        requires["Ice"].push_back("Ice/StreamHelpers");
+        jsRequires["Ice"].push_back("Ice/Long");
+        jsRequires["Ice"].push_back("Ice/HashMap");
+        jsRequires["Ice"].push_back("Ice/HashUtil");
+        jsRequires["Ice"].push_back("Ice/ArrayUtil");
+        jsRequires["Ice"].push_back("Ice/StreamHelpers");
     }
     else
     {
-        requires["Ice"] = list<string>();
-        requires["Ice"].push_back("ice");
+        jsRequires["Ice"] = list<string>();
+        jsRequires["Ice"].push_back("ice");
     }
 
     StringList includes = p->includeFiles();
@@ -1133,19 +1138,19 @@ Slice::Gen::RequireVisitor::writeRequires(const UnitPtr& p)
             {
                 if(!_icejs && iceBuiltinModule(*j))
                 {
-                    if(requires.find(*j) == requires.end())
+                    if(jsRequires.find(*j) == jsRequires.end())
                     {
-                        requires[*j] = list<string>();
-                        requires[*j].push_back("ice");
+                        jsRequires[*j] = list<string>();
+                        jsRequires[*j].push_back("ice");
                     }
                 }
                 else
                 {
-                    if(requires.find(*j) == requires.end())
+                    if(jsRequires.find(*j) == jsRequires.end())
                     {
-                        requires[*j] = list<string>();
+                        jsRequires[*j] = list<string>();
                     }
-                    requires[*j].push_back(changeInclude(*i, _includePaths));
+                    jsRequires[*j].push_back(changeInclude(*i, _includePaths));
                 }
             }
         }
@@ -1167,7 +1172,7 @@ Slice::Gen::RequireVisitor::writeRequires(const UnitPtr& p)
             _out << nl << "const _ModuleRegistry = require(\"../Ice/ModuleRegistry\").Ice._ModuleRegistry;";
         }
 
-        for(map<string, list<string> >::const_iterator i = requires.begin(); i != requires.end(); ++i)
+        for(map<string, list<string> >::const_iterator i = jsRequires.begin(); i != jsRequires.end(); ++i)
         {
             if(!_icejs && i->first == "Ice")
             {
@@ -1185,24 +1190,16 @@ Slice::Gen::RequireVisitor::writeRequires(const UnitPtr& p)
             }
             else
             {
-                _out << nl << "const " << i->first << " = _ModuleRegistry.require(module,";
-                _out << nl << "[";
-                _out.inc();
-                for(list<string>::const_iterator j = i->second.begin(); j != i->second.end();)
+                for(list<string>::const_iterator j = i->second.begin(); j != i->second.end(); ++j)
                 {
-                    _out << nl << '"';
+                    _out << nl << "require(\"";
                     if(_icejs && iceBuiltinModule(i->first))
                     {
                         _out << "../";
                     }
-                    _out << *j << '"';
-                    if(++j != i->second.end())
-                    {
-                        _out << ",";
-                    }
+                    _out <<  *j << "\");";
                 }
-                _out.dec();
-                _out << nl << "])." << i->first << ";";
+                _out << nl << "const " << i->first << " = _ModuleRegistry.module(\"" << i->first << "\");";
                 _out << sp;
             }
             seenModules.push_back(i->first);
@@ -1330,7 +1327,15 @@ Slice::Gen::TypesVisitor::visitClassDefStart(const ClassDefPtr& p)
 
     ClassList allBases = p->allBases();
     StringList ids;
+#ifdef ICE_CPP11_COMPILER
+    transform(allBases.begin(), allBases.end(), back_inserter(ids),
+              [](const ContainedPtr& it)
+              {
+                  return it->scoped();
+              });
+#else
     transform(allBases.begin(), allBases.end(), back_inserter(ids), ::IceUtil::constMemFun(&Contained::scoped));
+#endif
     StringList other;
     other.push_back(scoped);
     other.push_back("::Ice::Object");

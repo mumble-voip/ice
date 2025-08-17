@@ -970,8 +970,8 @@ public final class ConnectionI extends IceInternal.EventHandler
     {
         if(adapter != null)
         {
-            // Go through the adapter to set the adapter and servant manager on this connection
-            // to ensure the object adapter is still active.
+            // Go through the adapter to set the adapter on this connection to ensure the
+            // object adapter is still active and to ensure proper locking order.
             ((ObjectAdapterI)adapter).setAdapterOnConnection(this);
         }
         else
@@ -1467,6 +1467,21 @@ public final class ConnectionI extends IceInternal.EventHandler
         {
             assert (_state == StateClosed);
             unscheduleTimeout(IceInternal.SocketOperation.Read | IceInternal.SocketOperation.Write);
+        }
+
+        if(_instance.queueRequests())
+        {
+            _instance.getQueueExecutor().executeNoThrow(new Callable<Void>()
+            {
+                @Override
+                public Void call()
+                    throws Exception
+                {
+                    finish(close);
+                    return null;
+                }
+            });
+            return;
         }
 
         //
@@ -2128,7 +2143,7 @@ public final class ConnectionI extends IceInternal.EventHandler
                 setState(StateClosingPending);
 
                 //
-                // Notify the the transceiver of the graceful connection closure.
+                // Notify the transceiver of the graceful connection closure.
                 //
                 int op = _transceiver.closing(true, _exception);
                 if(op != 0)
@@ -2668,7 +2683,7 @@ public final class ConnectionI extends IceInternal.EventHandler
                         setState(StateClosingPending, new CloseConnectionException());
 
                         //
-                        // Notify the the transceiver of the graceful connection closure.
+                        // Notify the transceiver of the graceful connection closure.
                         //
                         int op = _transceiver.closing(false, _exception);
                         if(op != 0)

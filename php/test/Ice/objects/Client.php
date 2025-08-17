@@ -27,6 +27,7 @@ if($NS)
         class Test_L extends Test\L {}
         class Test_F1 extends Test\F1 {}
         class Test_F3 extends Test\F3 {}
+        class Test_N extends Test\N {}
 EOT;
     eval($code);
 }
@@ -594,6 +595,29 @@ function allTests($helper)
         test($f32->f2->ice_getIdentity()->name = "F22");
     }
     echo "ok\n";
+
+    echo "testing sending class cycle...";
+    $rec = new Test_Recursive();
+    $rec->v = $rec;
+    $acceptsCycles = $initial->acceptsClassCycles();
+    try
+    {
+        $initial->setCycle($rec);
+        test($acceptsCycles);
+    }
+    catch(Exception $ex)
+    {
+        $ule = $NS ? "Ice\\UnknownLocalException" : "Ice_UnknownLocalException";
+        test($ex instanceof $ule);
+        test(!$acceptsCycles);
+    }
+    echo "ok\n";
+
+    echo "testing class with interface by value member... ";
+    $i = $initial->getI();
+    $n = new Test_N($i);
+    $n = $initial->opN($n);
+    echo "ok";
 
     return $initial;
 }

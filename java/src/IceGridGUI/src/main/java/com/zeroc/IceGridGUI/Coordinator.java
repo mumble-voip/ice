@@ -1235,6 +1235,7 @@ public class Coordinator
         _releaseExclusiveWriteAccess.setEnabled(false);
         _saveToRegistry.setEnabled(false);
         _saveToRegistryWithoutRestart.setEnabled(false);
+        getMainFrame().setTitle("IceGrid GUI");
     }
 
     enum TrustDecision { YesAlways, YesThisTime, No };
@@ -1710,6 +1711,7 @@ public class Coordinator
                 _acquireExclusiveWriteAccess.setEnabled(true);
                 _mainPane.setSelectedComponent(_liveDeploymentPane);
                 _sessionKeeper.loginSuccess(parent, _acmTimeout, _session, _replicaName, info);
+                getMainFrame().setTitle(info.getInstanceName() + " (" + _replicaName + ") - IceGrid GUI");
             }
 
             synchronized public void loginFailed()
@@ -3231,7 +3233,7 @@ public class Coordinator
             version = version.substring(0, pos);
         }
 
-        String[] tokens = version.split(".");
+        String[] tokens = version.split("\\.");
         if(tokens.length > 2)
         {
             version = tokens[0] + "." + tokens[1];
@@ -3487,10 +3489,10 @@ public class Coordinator
         if(System.getProperty("os.name").startsWith("Windows"))
         {
             String regKey = "\"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders\"";
-            String regQuery = "reg query " + regKey + " /v Personal";
             try
             {
-                java.lang.Process process = Runtime.getRuntime().exec(regQuery);
+                java.lang.Process process = Runtime.getRuntime().exec(
+                    new String[] {"reg", "query", regKey, "/v", "Personal"});
                 process.waitFor();
                 if(process.exitValue() != 0)
                 {

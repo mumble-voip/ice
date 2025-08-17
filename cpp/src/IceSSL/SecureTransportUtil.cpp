@@ -23,6 +23,10 @@ using namespace IceSSL;
 using namespace IceSSL::SecureTransport;
 using namespace std;
 
+#if defined(__clang__)
+#   pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 namespace
 {
 
@@ -398,7 +402,7 @@ loadPrivateKey(const string& file, SecCertificateRef cert, SecKeychainRef keycha
     item.retain(static_cast<SecCertificateRef>(const_cast<void*>(CFArrayGetValueAtIndex(added.get(), 0))));
 
     //
-    // Create the association between the private  key and the certificate,
+    // Create the association between the private key and the certificate,
     // kSecKeyLabel attribute should match the subject key identifier.
     //
     vector<SecKeychainAttribute> attributes;

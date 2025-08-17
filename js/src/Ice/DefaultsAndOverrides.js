@@ -3,13 +3,11 @@
 //
 
 const Ice = require("../Ice/ModuleRegistry").Ice;
-Ice._ModuleRegistry.require(module,
-    [
-        "../Ice/FormatType",
-        "../Ice/EndpointTypes",
-        "../Ice/Protocol",
-        "../Ice/LocalException"
-    ]);
+
+require("../Ice/EndpointTypes");
+require("../Ice/FormatType");
+require("../Ice/LocalException");
+require("../Ice/Protocol");
 
 const FormatType = Ice.FormatType;
 const EndpointSelectionType = Ice.EndpointSelectionType;
@@ -20,7 +18,7 @@ class DefaultsAndOverrides
     constructor(properties, logger)
     {
         this.defaultProtocol = properties.getPropertyWithDefault("Ice.Default.Protocol",
-                                                                 Ice.TcpEndpointFactory !== undefined ? "tcp" : "ws");
+                                                                 Ice.TcpTransceiver !== null ? "tcp" : "ws");
 
         let value = properties.getProperty("Ice.Default.Host");
         this.defaultHost = value.length > 0 ? value : null;

@@ -139,7 +139,7 @@ public:
         static const string prefix = "java:";
 
         //
-        // Validate global metadata in the top-level file and all included files.
+        // Validate file metadata in the top-level file and all included files.
         //
         StringList files = p->allFiles();
 
@@ -166,7 +166,7 @@ public:
                     }
                     else
                     {
-                        dc->warning(InvalidMetaData, file, "",  "ignoring invalid global metadata `" + s + "'");
+                        dc->warning(InvalidMetaData, file, "",  "ignoring invalid file metadata `" + s + "'");
                         globalMetaData.remove(s);
                         continue;
                     }
@@ -669,6 +669,28 @@ Slice::computeSerialVersionUUID(const ExceptionPtr& p)
     return hashCode;
 }
 
+bool
+Slice::isValidMethodParameterList(const DataMemberList& members, int additionalUnits)
+{
+    // The maximum length of a method parameter list is 255 units, including the implicit 'this' parameter.
+    // Each parameter is 1 unit, except for long and double parameters, which are 2 units.
+    // Start the length at 1 to account for the implicit 'this' parameter (plus any additional units).
+    int length = 1 + additionalUnits;
+    for(DataMemberList::const_iterator p = members.begin(); p != members.end(); ++p)
+    {
+        BuiltinPtr builtin = BuiltinPtr::dynamicCast((*p)->type());
+        if(builtin && (builtin->kind() == Builtin::KindLong || builtin->kind() == Builtin::KindDouble))
+        {
+            length += 2;
+        }
+        else
+        {
+            length++;
+        }
+    }
+    return length <= 255;
+}
+
 Slice::JavaOutput::JavaOutput()
 {
 }
@@ -732,7 +754,14 @@ Slice::JavaOutput::openClass(const string& cls, const string& prefix, const stri
                 continue;
             }
 
-            if(IceUtilInternal::mkdir(path, 0777) != 0)
+            int err = IceUtilInternal::mkdir(path, 0777);
+            // If slice2java is run concurrently, it's possible that another instance of slice2java has already
+            // created the directory.
+            if (err == 0 || (errno == EEXIST && IceUtilInternal::directoryExists(path)))
+            {
+                // Directory successfully created or already exists.
+            }
+            else
             {
                 ostringstream os;
                 os << "cannot create directory `" << path << "': " << IceUtilInternal::errorToString(errno);
@@ -868,7 +897,11 @@ Slice::JavaCompatGenerator::fixKwd(const string& name) const
         return lookupKwd(name);
     }
     StringList ids = splitScopedName(name);
+#ifdef ICE_CPP11_COMPILER
+    transform(ids.begin(), ids.end(), ids.begin(), [](const string& id) -> string { return lookupKwd(id); });
+#else
     transform(ids.begin(), ids.end(), ids.begin(), ptr_fun(lookupKwd));
+#endif
     stringstream result;
     for(StringList::const_iterator i = ids.begin(); i != ids.end(); ++i)
     {
@@ -953,7 +986,7 @@ Slice::JavaCompatGenerator::getPackagePrefix(const ContainedPtr& cont) const
     assert(m);
 
     //
-    // The java:package metadata can be defined as global metadata or applied to a top-level module.
+    // The java:package metadata can be defined as file metadata or applied to a top-level module.
     // We check for the metadata at the top-level module first and then fall back to the global scope.
     //
     static const string prefix = "java:package:";
@@ -3348,7 +3381,11 @@ Slice::JavaGenerator::fixKwd(const string& name) const
         return lookupKwd(name);
     }
     StringList ids = splitScopedName(name);
+#ifdef ICE_CPP11_COMPILER
+    transform(ids.begin(), ids.end(), ids.begin(), [](const string& id) -> string { return lookupKwd(id); });
+#else
     transform(ids.begin(), ids.end(), ids.begin(), ptr_fun(lookupKwd));
+#endif
     stringstream result;
     for(StringList::const_iterator i = ids.begin(); i != ids.end(); ++i)
     {
@@ -3433,7 +3470,7 @@ Slice::JavaGenerator::getPackagePrefix(const ContainedPtr& cont) const
     assert(m);
 
     //
-    // The java:package metadata can be defined as global metadata or applied to a top-level module.
+    // The java:package metadata can be defined as file metadata or applied to a top-level module.
     // We check for the metadata at the top-level module first and then fall back to the global scope.
     //
     static const string prefix = "java:package:";

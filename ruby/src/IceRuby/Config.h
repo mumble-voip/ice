@@ -51,18 +51,34 @@
 // BUGFIX: Workaround unused parameter in ruby.h header file
 //
 #if defined(__clang__)
+// BUGFIX: Workaround clang 13 warnings during ruby macro expansion, it is important to put this before the push/pop
+// directives to keep the warnings ignored in the source files where macros are expanded.
+#   if __clang_major__ >= 13
+#       pragma clang diagnostic ignored "-Wcompound-token-split-by-macro"
+#   endif
 #   pragma clang diagnostic push
 #   pragma clang diagnostic ignored "-Wunused-parameter"
 //
 // BUGFIX: Workaround clang conversion warnings in ruby headers
 //
 #   pragma clang diagnostic ignored "-Wconversion"
+
+// Silence warnings regarding missing deprecation attributes in ruby headers
+#   pragma clang diagnostic ignored "-Wdocumentation"
+#   pragma clang diagnostic ignored "-Wdocumentation-deprecated-sync"
 #elif defined(__GNUC__)
 #   pragma GCC diagnostic push
 #   pragma GCC diagnostic ignored "-Wunused-parameter"
+// BUGFIX Workaround G++ 10 problem with ruby headers
+// see https://bugs.ruby-lang.org/issues/16930
+#   pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif
 
 #include <ruby.h>
+
+#ifdef HAVE_RUBY_ENCODING_H
+#  include <ruby/encoding.h>
+#endif
 
 #if defined(__clang__)
 #   pragma clang diagnostic pop

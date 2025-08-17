@@ -87,7 +87,10 @@ namespace Ice
                 mo1.ioopd.Value.Add(5, communicator.stringToProxy("test"));
 
                 mo1.bos = new bool[] { false, true, false };
+
+                #if !NET8_0_OR_GREATER // See #1549
                 mo1.ser = new Test.SerializableClass(56);
+                #endif
 
                 test(mo1.a.Value ==(byte)15);
                 test(mo1.b.Value);
@@ -121,7 +124,12 @@ namespace Ice
                 test(mo1.ioopd.Value[5].Equals(communicator.stringToProxy("test")));
 
                 test(ArraysEqual(mo1.bos.Value, new bool[] { false, true, false }));
+
+                #if NET8_0_OR_GREATER
+                test(!mo1.ser.HasValue);
+                #else
                 test(mo1.ser.Value.Equals(new Test.SerializableClass(56)));
+                #endif
 
                 output.WriteLine("ok");
 
@@ -170,7 +178,12 @@ namespace Ice
 
                 test(!mo4.ser.HasValue);
 
+                #if NET8_0_OR_GREATER
+                bool supportsCsharpSerializable = false;
+                #else
                 bool supportsCsharpSerializable = initial.supportsCsharpSerializable();
+                #endif
+
                 if(!supportsCsharpSerializable)
                 {
                     mo1.ser = Ice.Util.None;
@@ -1678,7 +1691,6 @@ namespace Ice
                     os = new Ice.OutputStream(communicator);
                     os.startEncapsulation();
                     os.writeOptional(2, Ice.OptionalFormat.VSize);
-                    os.writeSize(p1.Value.Length +(p1.Value.Length > 254 ? 5 : 1));
                     Test.SmallStructSeqHelper.write(os, p1.Value);
                     os.endEncapsulation();
                     inEncaps = os.finished();
@@ -1686,14 +1698,16 @@ namespace Ice
                     @in = new Ice.InputStream(communicator, outEncaps);
                     @in.startEncapsulation();
                     test(@in.readOptional(1, Ice.OptionalFormat.VSize));
-                    @in.skipSize();
                     Test.SmallStruct[] arr = Test.SmallStructSeqHelper.read(@in);
                     test(ArraysEqual(arr, p1.Value));
                     test(@in.readOptional(3, Ice.OptionalFormat.VSize));
-                    @in.skipSize();
                     arr = Test.SmallStructSeqHelper.read(@in);
                     test(ArraysEqual(arr, p1.Value));
                     @in.endEncapsulation();
+
+                    // Check the outEncaps size matches the expected size, 6 bytes for the encapsulation, plus each
+                    // 12 bytes for each sequence ( 1 byte tag, 1 byte size, 10 byte contents)
+                    test(outEncaps.Length == 12 + 12 + 6);
 
                     @in = new Ice.InputStream(communicator, outEncaps);
                     @in.startEncapsulation();
@@ -2207,6 +2221,8 @@ namespace Ice
                         test(!ex.o.HasValue);
                         test(!ex.ss.HasValue);
                         test(!ex.o2.HasValue);
+                        test(ex.d1 == "d1");
+                        test(ex.d2 == "d2");
                     }
 
                     try
@@ -2223,6 +2239,8 @@ namespace Ice
                         test(ex.o.Value.a.Value == 53);
                         test(ex.ss.Value.Equals("test2"));
                         test(ex.o2.Value.a.Value == 53);
+                        test(ex.d1 == "d1");
+                        test(ex.d2 == "d2");
                     }
 
                     try

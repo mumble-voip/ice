@@ -216,7 +216,7 @@ public class AllTests
             test(retry1.opIdempotent(4) == 4);
             instrumentation.testInvocationCount(1);
             instrumentation.testFailureCount(0);
-            // It suceeded after 3 retry because of the failed opIdempotent on the fixed
+            // It succeeded after 3 retry because of the failed opIdempotent on the fixed
             // proxy above
             instrumentation.testRetryCount(3);
             out.println("ok");
@@ -314,7 +314,7 @@ public class AllTests
                 RetryPrx retryWithTimeout = (RetryPrx)retry1.ice_invocationTimeout(-2).ice_timeout(200);
                 try
                 {
-                    retryWithTimeout.sleep(500);
+                    retryWithTimeout.sleep(1000);
                     test(false);
                 }
                 catch(Ice.TimeoutException ex)

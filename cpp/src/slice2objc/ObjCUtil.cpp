@@ -427,6 +427,46 @@ Slice::ObjCGenerator::typeToObjCTypeString(const TypePtr& type)
     }
 }
 
+string
+Slice::ObjCGenerator::defaultValue(const TypePtr& type, bool isOptional)
+{
+    if(isValueType(type) && !isOptional)
+    {
+         if(EnumPtr::dynamicCast(type))
+         {
+             return "0";
+         }
+         BuiltinPtr builtin = BuiltinPtr::dynamicCast(type);
+         if(builtin)
+         {
+             switch(builtin->kind())
+             {
+             case Builtin::KindBool:
+                 return "NO";
+             case Builtin::KindByte:
+             case Builtin::KindShort:
+             case Builtin::KindInt:
+             case Builtin::KindLong:
+                 return "0";
+             case Builtin::KindFloat:
+             case Builtin::KindDouble:
+                 return "0.0";
+             default:
+                 {
+                     assert(false);
+                     return "???";
+                 }
+             }
+         }
+         assert(false);
+         return "???";
+    }
+    else
+    {
+        return "nil";
+    }
+}
+
 bool
 Slice::ObjCGenerator::isValueType(const TypePtr& type)
 {
@@ -1054,7 +1094,7 @@ bool
 Slice::ObjCGenerator::MetaDataVisitor::visitUnitStart(const UnitPtr& p)
 {
     //
-    // Validate global metadata in the top-level file and all included files.
+    // Validate file metadata in the top-level file and all included files.
     //
     StringList files = p->allFiles();
 
@@ -1080,7 +1120,7 @@ Slice::ObjCGenerator::MetaDataVisitor::visitUnitStart(const UnitPtr& p)
                     if(headerDir > 1)
                     {
                         ostringstream ostr;
-                        ostr << "ignoring invalid global metadata `" << s
+                        ostr << "ignoring invalid file metadata `" << s
                              << "': directive can appear only once per file";
                         dc->warning(InvalidMetaData, file, -1, ostr.str());
                         globalMetaData.remove(s);
@@ -1093,7 +1133,7 @@ Slice::ObjCGenerator::MetaDataVisitor::visitUnitStart(const UnitPtr& p)
                     if(dllExport > 1)
                     {
                         ostringstream ostr;
-                        ostr << "ignoring invalid global metadata `" << s
+                        ostr << "ignoring invalid file metadata `" << s
                              << "': directive can appear only once per file";
                         dc->warning(InvalidMetaData, file, -1, ostr.str());
                         globalMetaData.remove(s);
@@ -1102,7 +1142,7 @@ Slice::ObjCGenerator::MetaDataVisitor::visitUnitStart(const UnitPtr& p)
                 }
 
                 ostringstream ostr;
-                ostr << "ignoring invalid global metadata `" << s << "'";
+                ostr << "ignoring invalid file metadata `" << s << "'";
                 dc->warning(InvalidMetaData, file, -1, ostr.str());
 
                 globalMetaData.remove(s);

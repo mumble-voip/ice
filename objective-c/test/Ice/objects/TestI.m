@@ -198,6 +198,17 @@
     return YES;
 }
 
+-(void) setCycle:(TestObjectsRecursive*)r current:(ICECurrent*)__unused current
+{
+    // break the cycle
+    r.v = nil;
+}
+
+-(BOOL) acceptsClassCycles:(ICECurrent*) current
+{
+    return [[[[current adapter] getCommunicator] getProperties] getPropertyAsInt:@"Ice.AcceptClassCycles"] > 0;
+}
+
 -(TestObjectsB*) getMB:(ICECurrent*)__unused current
 {
     return _b1;
@@ -372,6 +383,11 @@
 -(BOOL) hasF3:(ICECurrent *)__unused current
 {
     return NO;
+}
+
+-(TestObjectsN*) opN:(TestObjectsN*)p1 current:(ICECurrent *)__unused current
+{
+    return p1;
 }
 @end
 

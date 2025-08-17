@@ -141,8 +141,10 @@ exception OptionalException
 
 exception DerivedException extends OptionalException
 {
+    string d1;
     optional(600) string ss = "test";
     optional(601) OneOptional o2;
+    string d2;
 }
 
 exception RequiredException extends OptionalException
@@ -272,6 +274,10 @@ interface Initial
                                                         out optional(3) IntOneOptionalDict p3);
 
     void opClassAndUnknownOptional(A p);
+
+    void opRequiredAfterOptional(int p1, optional(1) int p2, int p3, out int p4, out optional(2) int p5, out int p6);
+    void opOptionalAfterRequired(int p1, optional(1) int p2, optional(2) int p3, out int p4, out optional(3) int p5,
+                                 out optional(4) int p6);
 
     void sendOptionalClass(bool req, optional(1) OneOptional o);
 

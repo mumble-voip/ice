@@ -265,6 +265,32 @@ public class AllTests
             }
             Console.Out.WriteLine("ok");
 
+            Console.Out.Write("testing certificate without password... ");
+            Console.Out.Flush();
+            {
+                initData = createClientProps(defaultProperties, "password_less_client", "password_less_cacert");
+                initData.properties.setProperty("IceSSL.Password", "");
+                Ice.Communicator comm = Ice.Util.initialize(ref args, initData);
+
+                Test.ServerFactoryPrx fact = Test.ServerFactoryPrxHelper.checkedCast(comm.stringToProxy(factoryRef));
+                test(fact != null);
+                d = createServerProps(defaultProperties, "password_less_server", "password_less_cacert");
+                d["IceSSL.Password"] = "";
+                Test.ServerPrx server = fact.createServer(d);
+                try
+                {
+                    server.ice_ping();
+                }
+                catch(Ice.LocalException ex)
+                {
+                    Console.WriteLine(ex.ToString());
+                    test(false);
+                }
+                fact.destroyServer(server);
+                comm.destroy();
+            }
+            Console.Out.WriteLine("ok");
+
             Console.Out.Write("testing certificate verification... ");
             Console.Out.Flush();
             {
@@ -588,7 +614,7 @@ public class AllTests
                         catch(Ice.LocalException ex)
                         {
                             //
-                            // macOS catalina does not check the certificate common name
+                            // macOS catalina or greater does not check the certificate common name
                             //
                             if(!IceInternal.AssemblyUtil.isMacOS)
                             {
@@ -642,10 +668,10 @@ public class AllTests
                         {
                             server.ice_ping();
                         }
-                        catch(Ice.LocalException ex)
+                        catch(Ice.LocalException)
                         {
-                            Console.WriteLine(ex.ToString());
-                            test(false);
+                            // macOS >= Catalina requires a DNS altName. DNS name as the Common Name is not trusted
+                            test(IceInternal.AssemblyUtil.isMacOS);
                         }
                         fact.destroyServer(server);
                         comm.destroy();
@@ -781,7 +807,7 @@ public class AllTests
                         catch(Ice.SecurityException ex)
                         {
                             //
-                            // macOS catalina does not check the certificate common name
+                            // macOS catalina or greater does not check the certificate common name
                             //
                             if(!IceInternal.AssemblyUtil.isMacOS)
                             {
@@ -997,6 +1023,10 @@ public class AllTests
                         catch(Ice.SecurityException)
                         {
                             // Chain length too long
+                        }
+                        catch(Ice.ConnectionLostException)
+                        {
+                            // Expected
                         }
                         catch(Ice.LocalException ex)
                         {
@@ -1232,10 +1262,7 @@ public class AllTests
             Console.Out.Write("testing protocols... ");
             Console.Out.Flush();
             {
-                //
-                // This should fail because the client and server have no protocol
-                // in common.
-                //
+                // Check if the platform supports tls1_1
                 initData = createClientProps(defaultProperties, "c_rsa_ca1", "cacert1");
                 initData.properties.setProperty("IceSSL.Protocols", "tls1_1");
                 Ice.Communicator comm = Ice.Util.initialize(ref args, initData);
@@ -1243,8 +1270,34 @@ public class AllTests
                 test(fact != null);
                 d = createServerProps(defaultProperties, "s_rsa_ca1", "cacert1");
                 d["IceSSL.VerifyPeer"] = "2";
-                d["IceSSL.Protocols"] = "tls1_2";
+                d["IceSSL.Protocols"] = "tls1_1";
+                bool tls11;
                 Test.ServerPrx server = fact.createServer(d);
+                try
+                {
+                    server.ice_ping();
+                    tls11 = true;
+                }
+                catch(Exception)
+                {
+                    tls11 = false;
+                }
+                fact.destroyServer(server);
+                comm.destroy();
+
+                //
+                // This should fail because the client and server have no protocol
+                // in common.
+                //
+                initData = createClientProps(defaultProperties, "c_rsa_ca1", "cacert1");
+                initData.properties.setProperty("IceSSL.Protocols", "tls1_1");
+                comm = Ice.Util.initialize(ref args, initData);
+                fact = Test.ServerFactoryPrxHelper.checkedCast(comm.stringToProxy(factoryRef));
+                test(fact != null);
+                d = createServerProps(defaultProperties, "s_rsa_ca1", "cacert1");
+                d["IceSSL.VerifyPeer"] = "2";
+                d["IceSSL.Protocols"] = "tls1_2";
+                server = fact.createServer(d);
                 try
                 {
                     server.ice_ping();
@@ -1266,30 +1319,20 @@ public class AllTests
                 fact.destroyServer(server);
                 comm.destroy();
 
-                //
-                // This should succeed.
-                //
-                comm = Ice.Util.initialize(ref args, initData);
-                fact = Test.ServerFactoryPrxHelper.checkedCast(comm.stringToProxy(factoryRef));
-                test(fact != null);
-                d = createServerProps(defaultProperties, "s_rsa_ca1", "cacert1");
-                d["IceSSL.VerifyPeer"] = "2";
-                d["IceSSL.Protocols"] = "tls1_1, tls1_2";
-                server = fact.createServer(d);
-                try
+                if(tls11)
                 {
+                    // This should succeed.
+                    comm = Ice.Util.initialize(ref args, initData);
+                    fact = Test.ServerFactoryPrxHelper.checkedCast(comm.stringToProxy(factoryRef));
+                    test(fact != null);
+                    d = createServerProps(defaultProperties, "s_rsa_ca1", "cacert1");
+                    d["IceSSL.VerifyPeer"] = "2";
+                    d["IceSSL.Protocols"] = "tls1_1, tls1_2";
+                    server = fact.createServer(d);
                     server.ice_ping();
+                    fact.destroyServer(server);
+                    comm.destroy();
                 }
-                catch(Ice.LocalException ex)
-                {
-                    if(ex.ToString().IndexOf("no protocols available") < 0) // Expected if TLS1.1 is disabled (RHEL8)
-                    {
-                        Console.WriteLine(ex.ToString());
-                        test(false);
-                    }
-                }
-                fact.destroyServer(server);
-                comm.destroy();
 
                 try
                 {
@@ -1335,28 +1378,6 @@ public class AllTests
                 catch(Ice.ConnectionLostException)
                 {
                     // Expected.
-                }
-                catch(Ice.LocalException ex)
-                {
-                    Console.WriteLine(ex.ToString());
-                    test(false);
-                }
-                fact.destroyServer(server);
-                comm.destroy();
-
-                //
-                // This should success because the client and the server enables SSLv3
-                //
-                comm = Ice.Util.initialize(ref args, initData);
-                fact = Test.ServerFactoryPrxHelper.checkedCast(comm.stringToProxy(factoryRef));
-                test(fact != null);
-                d = createServerProps(defaultProperties, "s_rsa_ca1", "cacert1");
-                d["IceSSL.VerifyPeer"] = "2";
-                d["IceSSL.Protocols"] = "ssl3, tls1_0, tls1_1, tls1_2";
-                server = fact.createServer(d);
-                try
-                {
-                    server.ice_ping();
                 }
                 catch(Ice.LocalException ex)
                 {
@@ -2297,16 +2318,17 @@ public class AllTests
             }
             Console.Out.WriteLine("ok");
 
-            Console.Out.Write("testing IceSSL.FindCerts properties... ");
-            Console.Out.Flush();
+            if(!IceInternal.AssemblyUtil.isMacOS)
             {
+                Console.Out.Write("testing IceSSL.FindCerts properties... ");
+                Console.Out.Flush();
                 string[] clientFindCertProperties = new string[]
                 {
                     "SUBJECTDN:'CN=Client, OU=Ice, O=\"ZeroC, Inc.\", L=Jupiter, S=Florida, C=US, E=info@zeroc.com'",
                     "ISSUER:'ZeroC, Inc.' SUBJECT:Client SERIAL:02",
                     "ISSUERDN:'CN=ZeroC Test CA 1, OU=Ice, O=\"ZeroC, Inc.\",L=Jupiter, S=Florida, C=US,E=info@zeroc.com' SUBJECT:Client",
-                    "THUMBPRINT:'82 30 1E 35 9E 39 C1 D0 63 0D 67 3D 12 DD D4 96 90 1E EF 54'",
-                    "SUBJECTKEYID:'FC 5D 4F AB F0 6C 03 11 B8 F3 68 CF 89 54 92 3F F9 79 2A 06'"
+                    "THUMBPRINT:'49 D0 0C 39 C7 A6 44 51 2F 2C 6E 58 5F 33 76 39 74 47 84 14'",
+                    "SUBJECTKEYID:'0C 8A 4F 53 BE DF C8 1B 70 05 AD 39 AA EE 30 C6 F3 BE FD 79'",
                 };
 
                 string[] serverFindCertProperties = new string[]
@@ -2314,8 +2336,8 @@ public class AllTests
                     "SUBJECTDN:'CN=Server, OU=Ice, O=\"ZeroC, Inc.\", L=Jupiter, S=Florida, C=US, E=info@zeroc.com'",
                     "ISSUER:'ZeroC, Inc.' SUBJECT:Server SERIAL:01",
                     "ISSUERDN:'CN=ZeroC Test CA 1, OU=Ice, O=\"ZeroC, Inc.\", L=Jupiter, S=Florida, C=US,E=info@zeroc.com' SUBJECT:Server",
-                    "THUMBPRINT:'C0 01 FF 9C C9 DA C8 0D 34 F6 2F DE 09 FB 28 0D 69 AB 78 BA'",
-                    "SUBJECTKEYID:'47 84 AE F9 F2 85 3D 99 30 6A 03 38 41 1A B9 EB C3 9C B5 4D'"
+                    "THUMBPRINT:'72 E7 51 C7 DF 19 E3 0C 98 58 47 DB B8 39 0B 04 2C E4 D0 92'",
+                    "SUBJECTKEYID:'A2 DD 5E A5 52 06 0B 9D 64 89 DC E1 01 B0 7E 46 F5 60 A5 D7'",
                 };
 
                 string[] failFindCertProperties = new string[]
@@ -2336,15 +2358,6 @@ public class AllTests
                 X509Store certStore = new X509Store("My", StoreLocation.CurrentUser);
                 certStore.Open(OpenFlags.ReadWrite);
                 var storageFlags = X509KeyStorageFlags.DefaultKeySet;
-                if(IceInternal.AssemblyUtil.isMacOS)
-                {
-                    //
-                    // On macOS, we need to mark the key exportable because the addition of the key to the
-                    // cert store requires to move the key from on keychain to another (which requires the
-                    // Exportable flag... see https://github.com/dotnet/corefx/issues/25631)
-                    //
-                    storageFlags |= X509KeyStorageFlags.Exportable;
-                }
                 try
                 {
                     foreach(string cert in certificates)
@@ -2441,8 +2454,8 @@ public class AllTests
                         test(false);
                     }
                 }
+                Console.Out.WriteLine("ok");
             }
-            Console.Out.WriteLine("ok");
 
             Console.Out.Write("testing system CAs... ");
             Console.Out.Flush();
@@ -2456,16 +2469,8 @@ public class AllTests
 
                 initData = createClientProps(defaultProperties);
                 initData.properties.setProperty("IceSSL.DefaultDir", "");
-                initData.properties.setProperty("IceSSL.VerifyDepthMax", "4");
+                initData.properties.setProperty("IceSSL.VerifyDepthMax", "5");
                 initData.properties.setProperty("Ice.Override.Timeout", "5000"); // 5s timeout
-                if(IceInternal.AssemblyUtil.isWindows)
-                {
-                    //
-                    // BUGFIX: SChannel TLS 1.2 bug that affects Windows versions prior to Windows 10
-                    // can cause SSL handshake errors when connecting to the remote zeroc server.
-                    //
-                    initData.properties.setProperty("IceSSL.Protocols", "TLS1_0,TLS1_1");
-                }
                 Ice.Communicator comm = Ice.Util.initialize(initData);
                 Ice.ObjectPrx p = comm.stringToProxy("dummy:wss -p 443 -h zeroc.com -r /demo-proxy/chat/glacier2");
                 while(true)
@@ -2505,17 +2510,9 @@ public class AllTests
                 retryCount = 0;
                 initData = createClientProps(defaultProperties);
                 initData.properties.setProperty("IceSSL.DefaultDir", "");
-                initData.properties.setProperty("IceSSL.VerifyDepthMax", "4");
+                initData.properties.setProperty("IceSSL.VerifyDepthMax", "5");
                 initData.properties.setProperty("Ice.Override.Timeout", "5000"); // 5s timeout
                 initData.properties.setProperty("IceSSL.UsePlatformCAs", "1");
-                if(IceInternal.AssemblyUtil.isWindows)
-                {
-                    //
-                    // BUGFIX: SChannel TLS 1.2 bug that affects Windows versions prior to Windows 10
-                    // can cause SSL handshake errors when connecting to the remote zeroc server.
-                    //
-                    initData.properties.setProperty("IceSSL.Protocols", "TLS1_0,TLS1_1");
-                }
                 comm = Ice.Util.initialize(initData);
                 p = comm.stringToProxy("dummy:wss -p 443 -h zeroc.com -r /demo-proxy/chat/glacier2");
                 while(true)

@@ -183,7 +183,7 @@ namespace Ice
                     test(retry1.opIdempotent(4) == 4);
                     Instrumentation.testInvocationCount(1);
                     Instrumentation.testFailureCount(0);
-                    // It suceeded after 3 retry because of the failed opIdempotent on the fixed proxy above
+                    // It succeeded after 3 retry because of the failed opIdempotent on the fixed proxy above
                     Instrumentation.testRetryCount(3);
                     output.WriteLine("ok");
                 }
@@ -282,7 +282,7 @@ namespace Ice
                             (Test.RetryPrx)retry1.ice_invocationTimeout(-2).ice_timeout(200);
                         try
                         {
-                            retryWithTimeout.sleep(500);
+                            retryWithTimeout.sleep(1000);
                             test(false);
                         }
                         catch(Ice.TimeoutException)
