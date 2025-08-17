@@ -76,7 +76,10 @@ if(NOT BUILD_ICE_CPP11)
 	)
 
 	if(UNIX)
-		target_link_libraries(icegridadmin PRIVATE icesslopenssl)
+		find_package(PkgConfig REQUIRED)
+		pkg_check_modules(libedit REQUIRED IMPORTED_TARGET libedit)
+
+		target_link_libraries(icegridadmin PRIVATE icesslopenssl PkgConfig::libedit)
 	endif()
 
 	if(MSVC)

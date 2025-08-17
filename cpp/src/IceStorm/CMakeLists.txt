@@ -91,6 +91,13 @@ target_link_libraries(icestormadmin
 		ice
 )
 
+if(UNIX)
+	find_package(PkgConfig REQUIRED)
+	pkg_check_modules(libedit REQUIRED IMPORTED_TARGET libedit)
+
+	target_link_libraries(icestormadmin PRIVATE PkgConfig::libedit)
+endif()
+
 if(MSVC)
 	source_group(
 		TREE ${CMAKE_CURRENT_SOURCE_DIR}
